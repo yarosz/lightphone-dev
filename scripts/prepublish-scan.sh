@@ -49,7 +49,7 @@ generic=(
   '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}'  # email addresses
 )
 # Allowed MATCHES (not lines): the emulator's host addresses and bot/noreply addresses.
-allow='^[^0-9A-Za-z]?(10\.0\.2\.[0-9]+|noreply@anthropic\.com|[0-9]+\+?[A-Za-z0-9-]*@users\.noreply\.github\.com|[^@]+@example\.(com|org))$'
+allow='^[^0-9A-Za-z]?(10\.0\.2\.[0-9]+|noreply@anthropic\.com|noreply@github\.com|[0-9]+\+?[A-Za-z0-9-]*@users\.noreply\.github\.com|[^@]+@example\.(com|org))$'
 
 patterns=("${generic[@]}")
 if [ -n "${PREPUBLISH_PRIVATE_PATTERNS:-}" ]; then
