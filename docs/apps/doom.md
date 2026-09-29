@@ -37,8 +37,8 @@ own tick rate. Making it a Tool meant:
 
 Doom used far less process than Reader: one session and one subagent. The subagent was a report-only
 smoke tester on the emulator, told never to touch the phone and to check focus before every input. It
-found five bugs, including that back always closes the Tool (a platform fact now) and that quitting
-looked the same as a crash.
+found five bugs, including that the back gesture closes the Tool without asking it (a platform fact
+now) and that quitting looked the same as a crash.
 
 Hand testing found the rest. No agent could tell that the stick felt wrong, or that the shutter was out
 of reach with the phone upright.

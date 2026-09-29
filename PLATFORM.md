@@ -83,7 +83,7 @@ Some commands below use [mise](https://mise.jdx.dev), which pins the JDK and And
 - Landscape by drawing sideways, on-screen thumb controls, the shutter and volume keys as held-grip buttons,
   AudioTrack sound, keep-screen-on, and saves in `filesDir` all work inside the SDK's rules.
 - The limits are ergonomic and policy, not speed: the edge buttons are out of reach with thumbs on the
-  screen, back always closes the Tool, color needs #190, and whether Light would sign a
+  screen, the back gesture closes the Tool without asking it, color needs #190, and whether Light would sign a
   WebAssembly-interpreter build is an open question.
 
 ## Rendering and frame rate (frame probe, 2026-09-27)
@@ -251,12 +251,20 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
   previous screen's `LightViewModel` is never cleared (`onCleared` doesn't run). Anything expensive a view
   model starts (an engine, threads, loops) survives and piles up: three Doom engines ran at once. Keep
   such state in a process-wide object that a new view model re-attaches to.
-- `goBack()` from the initial screen finishes the Tool; it calls `onBackPressed()` first, so a view model
-  that consumes back must let it through when it wants to close.
-- The system back gesture never reaches the screen: `LightActivity` registers its own
-  `OnBackPressedCallback` that calls the activity's `goBack()`, which finishes the Tool from the initial
-  screen without asking `LightViewModel.onBackPressed()`. A Tool can't intercept it (`androidx.activity` is a
-  blocked import). Design for back = leave; keep in-Tool menus on a visible button.
+- Back has two paths, and only one asks the Tool (SDK 57bbbd0):
+  - The SDK's on-screen back button (`LightTopBar`) calls the screen's `goBack()`, which asks
+    `LightViewModel.onBackPressed()` first (`LightScreen.kt:89-90`); return true to handle it, as Light's
+    README says. From the initial screen, a view model that consumes back must let it through when it
+    wants to close.
+  - The Android back gesture (a swipe in from the screen edge) goes to `LightActivity`'s own
+    `OnBackPressedCallback`, which pops the current screen through the activity's `goBack()` without asking
+    `onBackPressed()` (`LightActivity.kt:141-143`), and finishes the Tool from the initial screen. A Tool
+    can't intercept it (`androidx.activity` is a blocked import). Gesture navigation is the LP3's factory
+    setting: `dumpsys settings` shows `navigation_mode` 2 with `default:2 defaultSystemSet:true`, set by
+    SystemUI, on a phone whose navigation was never changed (2026-09-29).
+  - So state behind back (unsaved input, a game's pause menu) must survive its screen being popped
+    without warning: save it in `onScreenHide` or `onAppPause`, and keep in-Tool menus on a visible
+    button rather than on back.
 - `LightActivity` keeps its splash up for at least 1 s after `onCreate` (`setKeepOnScreenCondition`), so a
   cold start can't show content sooner: Chess measured about 1.03 s to its first Puzzle (debug build). Set startup
   targets from there.
@@ -300,7 +308,7 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
   with `LightOSEmulator.apk` installed as a system app in `/system/priv-app`, set as the home activity,
   animations off. Light's `docs/system_app` says push and special permissions only work with the
   emulator app running as system.
-- It must match the LP3: 480 dpi (`adb shell wm density`) and gesture navigation
+- It must match the LP3: 480 dpi (`adb shell wm density`) and gesture navigation, the LP3's default
   (`cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.gestural`). With
   three-button navigation the app area differs and a portrait-locked Tool is pillarboxed.
   light-reader `scripts/ci.sh` refuses to run unless the emulator reports `app=1080x1168` at 480 dpi.

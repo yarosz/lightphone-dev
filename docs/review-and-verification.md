@@ -86,7 +86,7 @@ right index finger only when the phone is held sideways, which changed the whole
 stuck, and a color toggle that only darkened the screen. No agent found these, because they need hands.
 
 **A smoke-test agent** on a throwaway emulator walked every flow and reported only. For Doom it found
-five bugs, including that back closes the Tool and that quitting looked the same as crashing. For Chess
+five bugs, including that the back gesture closes the Tool and that quitting looked the same as crashing. For Chess
 it found a failed result that wasn't saved at once and a back path that skipped a menu.
 
 **The builder rehearsal.** Light builds releases from a committed hash with its own unmodified plugin.
