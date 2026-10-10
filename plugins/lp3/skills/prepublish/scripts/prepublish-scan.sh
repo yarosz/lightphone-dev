@@ -2,7 +2,7 @@
 # Scan a repo's files AND its whole git history for things that shouldn't go public, before you push it
 # to a public remote or flip it to public.
 #
-#   scripts/prepublish-scan.sh [repo-dir]
+#   prepublish-scan.sh [repo-dir]
 #
 # Generic patterns are below. Your own private patterns (device serials, hostnames, family names, your
 # employer) go in a file outside the repo, one extended regex per line (# starts a comment), named by
@@ -14,8 +14,9 @@
 # What a regex can't catch: facts you've decided not to publish yet. Those need a human or reviewer
 # read, not this script.
 # Binary files (images: EXIF, GPS) are skipped; strip their metadata separately.
-set -uo pipefail
+set -uo pipefail   # not -e: grep's "no match" exit status is the normal case here
 
+case "${1:-}" in -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
 repo="${1:-.}"
 cd "$repo" || exit 64
 
@@ -76,11 +77,11 @@ report() {
 }
 
 echo "== working tree (tracked and untracked, not ignored)"
-if git grep --untracked -nIioE "$joined" -- . ':!scripts/prepublish-scan.sh' | report; then hits=1; fi
+if git grep --untracked -nIioE "$joined" -- . ':!*prepublish-scan.sh' | report; then hits=1; fi
 
 echo "== history (every commit on every ref)"
 for c in $(git rev-list --all); do
-  if git grep -nIioE "$joined" "$c" -- . ':!scripts/prepublish-scan.sh' | report; then hits=1; fi
+  if git grep -nIioE "$joined" "$c" -- . ':!*prepublish-scan.sh' | report; then hits=1; fi
 done
 
 echo "== commit messages, authors and committers; tags; notes"

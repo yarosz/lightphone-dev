@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# A fake adb for the tests. It answers from fixture files and never talks to a device.
+#
+# FAKE_ADB_STATE is a directory holding:
+#   devices                      `adb devices` output (header line included)
+#   devices.later, appear_after  after <appear_after> `devices` calls, serve devices.later instead
+#   dev/<serial>/model           getprop ro.product.model
+#   dev/<serial>/serialno        getprop ro.serialno
+#   dev/<serial>/avd             `emu avd name`
+#   dev/<serial>/power, window   dumpsys power, dumpsys window
+#   dev/<serial>/window.launched replaces window when `am start` runs
+#   dev/<serial>/settings/<ns>.<key>   a setting's value; no file = null
+#   log                          every call, one per line
+set -uo pipefail
+state="${FAKE_ADB_STATE:?FAKE_ADB_STATE not set}"
+echo "adb $*" >> "$state/log"
+
+serial=""
+case "${1:-}" in
+  -s) serial="$2"; shift 2 ;;
+  -d|-e) echo "fake adb: $1 is not allowed in these scripts" >&2; exit 99 ;;
+esac
+
+case "${1:-}" in
+  devices)
+    n=$(( $(cat "$state/devices_calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$state/devices_calls"
+    if [ -f "$state/appear_after" ] && [ "$n" -gt "$(cat "$state/appear_after")" ]; then
+      cat "$state/devices.later"
+    else
+      cat "$state/devices"
+    fi
+    exit 0 ;;
+  kill-server|start-server) echo "fake adb: $1 is not allowed" >&2; exit 99 ;;
+esac
+
+[ -n "$serial" ] || { echo "fake adb: call without -s: $*" >&2; exit 98; }
+dev="$state/dev/$serial"
+[ -d "$dev" ] || { echo "error: device '$serial' not found" >&2; exit 1; }
+
+case "$1" in
+  emu)
+    [ "$*" = "emu avd name" ] || { echo "fake adb: unknown emu command: $*" >&2; exit 97; }
+    cat "$dev/avd"; printf 'OK\n'; exit 0 ;;
+  exec-out)
+    [ "$*" = "exec-out screencap -p" ] || { echo "fake adb: unknown exec-out: $*" >&2; exit 97; }
+    printf 'FAKEPNG'; exit 0 ;;
+  shell) shift ;;
+  *) echo "fake adb: unknown command: $*" >&2; exit 97 ;;
+esac
+
+# adb shell joins its arguments into one command line that the device's shell parses again.
+eval "set -- $*"
+case "$1 ${2:-}" in
+  "getprop ro.product.model") cat "$dev/model" 2>/dev/null ;;
+  "getprop ro.serialno") cat "$dev/serialno" 2>/dev/null ;;
+  "dumpsys power") cat "$dev/power" ;;
+  "dumpsys window") cat "$dev/window" ;;
+  "input "*) ;;
+  "am start") [ -f "$dev/window.launched" ] && cp "$dev/window.launched" "$dev/window"; echo "Status: ok" ;;
+  "am force-stop") ;;
+  "settings get") cat "$dev/settings/$3.$4" 2>/dev/null || echo null ;;
+  "settings put") mkdir -p "$dev/settings"; printf '%s\n' "$5" > "$dev/settings/$3.$4" ;;
+  "settings delete") rm -f "$dev/settings/$3.$4"; echo "Deleted 1 rows" ;;
+  *) echo "fake adb: unknown shell command: $*" >&2; exit 97 ;;
+esac

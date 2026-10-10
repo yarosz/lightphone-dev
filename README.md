@@ -26,10 +26,29 @@ Tools over Wi-Fi without a cable.
 - [docs/what-went-wrong.md](docs/what-went-wrong.md): the incidents and the rule or script each one
   produced. If you read one doc about working with agents, read this one.
 - [docs/apps/](docs/apps/): a short case study per Tool.
-- [templates/](templates/): the brief formats we used, stripped of our paths, and a phone-lease script
-  written for this repo from the protocol the sessions followed by hand.
-- [scripts/prepublish-scan.sh](scripts/prepublish-scan.sh): scans a repo and its whole history for
-  paths, addresses, keys and your own private patterns before it goes public.
+- [templates/](templates/): the brief formats we used, stripped of our paths.
+- [plugins/lp3/](plugins/lp3/): a Claude Code plugin with five skills for your own agent (below),
+  including the phone-lease script and
+  [prepublish-scan.sh](plugins/lp3/skills/prepublish/scripts/prepublish-scan.sh), which scans a repo and
+  its whole history for paths, addresses, keys and your own private patterns before it goes public.
+
+## Skills for your agent
+
+The rules below, and the scripts that enforce them, are packaged as a Claude Code plugin:
+
+```
+/plugin marketplace add yarosz/lightphone-dev
+/plugin install lp3@lightphone-dev
+```
+
+- `lp3-device`: any adb step on an LP3 or LightOS emulator. Finds the device, guards every input, saves
+  and restores settings, and takes turns on a shared phone.
+- `lp3-new-tool`: start a Tool or bump light-sdk, with `check-tool.sh` for the committed setup.
+- `lp3-measure`: performance numbers on the phone, with nearest-rank percentiles from `p90.py`.
+- `lp3-release`: cut a release and submit it to the Tool Library, with the human approving.
+- `prepublish`: scan and review a repo, branch or post before it goes public.
+
+Details: [plugins/lp3/README.md](plugins/lp3/README.md).
 
 ## The short version
 
@@ -68,9 +87,10 @@ The order that worked for the third Tool:
    code. Write the glossary (`CONTEXT.md`) from the rulings, and copy light-reader's
    `scripts/domain-drift.sh`.
 6. Put the logic in pure Kotlin with property tests first; the Compose screens come after.
-7. If other sessions share the phone, take turns with [templates/lp3-lease.sh](templates/lp3-lease.sh).
-8. Before going public, run [scripts/prepublish-scan.sh](scripts/prepublish-scan.sh) with a private
-   patterns file.
+7. If other sessions share the phone, take turns with
+   [lp3-lease.sh](plugins/lp3/skills/lp3-device/scripts/lp3-lease.sh).
+8. Before going public, run [prepublish-scan.sh](plugins/lp3/skills/prepublish/scripts/prepublish-scan.sh)
+   with a private patterns file.
 9. Add a weekly job that runs the builder rehearsal against Light's newest SDK.
 10. Cut a GitHub release at the end of each milestone, before any public post about it. Submit to the
     Tool Library with the release commit's full SHA ("Shipping through Light" in PLATFORM.md).
