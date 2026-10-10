@@ -99,8 +99,9 @@ takes focus or injects keys breaks any other session's run. What worked:
 
 - **A lease file.** `~/.cache/lp3-lease` with holder, purpose, since and until, created with noclobber
   so only one session wins. Agent turns are 15 minutes or less. Release it, and say "LP3 free". The
-  sessions ran this protocol by hand; [templates/lp3-lease.sh](../templates/lp3-lease.sh) is a script
-  written afterwards for this repo that does the same.
+  sessions ran this protocol by hand;
+  [lp3-lease.sh](../plugins/lp3/skills/lp3-device/scripts/lp3-lease.sh) is a script written afterwards
+  for this repo that does the same, under a lock so a race has exactly one winner.
 - **Heads-up messages** between sessions before and after each hold. The sessions also traded findings
   this way. Chess found that LightOS acts on key-ups a Tool declined, and Reader shipped the same fix for
   its volume keys the same night.
@@ -127,9 +128,9 @@ way. Late in Reader, the maintainer handed one evening's product questions to a 
 to rule as they would.
 
 Submitting to Light's Tool Library stayed with the maintainer. When they asked an agent to do it, the
-agent drove the dashboard and stopped for one approval before each outward step: the description, the
-images, then the build. Chess 0.5.0 went in that way on 2026-10-09, and Reader 0.3.2 was submitted the
-same day.
+agent asked for approval once, before the first outward step, in one question covering the description,
+the images, the changelog and the submit. Then it drove the dashboard. Chess 0.5.0 went in that way on
+2026-10-09, and Reader 0.3.2 was submitted the same day.
 
 ## Cost and limits
 

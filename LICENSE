@@ -1,9 +1,9 @@
 This repository is dual-licensed by content type.
 
-Text (all Markdown files outside templates/): Creative Commons Attribution 4.0 International
-(CC BY 4.0), https://creativecommons.org/licenses/by/4.0/legalcode
+Text (all Markdown files outside templates/ and plugins/): CC BY 4.0, Creative Commons Attribution 4.0
+International, https://creativecommons.org/licenses/by/4.0/legalcode
 
-Scripts and templates (scripts/, templates/): the MIT License below.
+Scripts, templates and the lp3 plugin (templates/, plugins/): the MIT License below.
 
 MIT License
 
