@@ -29,7 +29,7 @@ Tools over Wi-Fi without a cable.
 - [templates/](templates/): the brief formats we used, stripped of our paths.
 - [plugins/lp3/](plugins/lp3/): a Claude Code plugin with five skills for your own agent (below),
   including the phone-lease script and
-  [prepublish-scan.sh](plugins/lp3/skills/prepublish/scripts/prepublish-scan.sh), which scans a repo and
+  [prepublish-scan.sh](plugins/lp3/skills/lp3-prepublish/scripts/prepublish-scan.sh), which scans a repo and
   its whole history for paths, addresses, keys and your own private patterns before it goes public.
 
 ## Skills for your agent
@@ -46,7 +46,8 @@ The rules below, and the scripts that enforce them, are packaged as a Claude Cod
 - `lp3-new-tool`: start a Tool or bump light-sdk, with `check-tool.sh` for the committed setup.
 - `lp3-measure`: performance numbers on the phone, with nearest-rank percentiles from `p90.py`.
 - `lp3-release`: cut a release and submit it to the Tool Library, with the human approving.
-- `prepublish`: scan and review a repo, branch or post before it goes public.
+- `lp3-prepublish`: scan and review a Tool repo, branch or CI evidence before it goes public. Invoked by
+  name, it works on any repo.
 
 Details: [plugins/lp3/README.md](plugins/lp3/README.md).
 
@@ -89,7 +90,7 @@ The order that worked for the third Tool:
 6. Put the logic in pure Kotlin with property tests first; the Compose screens come after.
 7. If other sessions share the phone, take turns with
    [lp3-lease.sh](plugins/lp3/skills/lp3-device/scripts/lp3-lease.sh).
-8. Before going public, run [prepublish-scan.sh](plugins/lp3/skills/prepublish/scripts/prepublish-scan.sh)
+8. Before going public, run [prepublish-scan.sh](plugins/lp3/skills/lp3-prepublish/scripts/prepublish-scan.sh)
    with a private patterns file.
 9. Add a weekly job that runs the builder rehearsal against Light's newest SDK.
 10. Cut a GitHub release at the end of each milestone, before any public post about it. Submit to the

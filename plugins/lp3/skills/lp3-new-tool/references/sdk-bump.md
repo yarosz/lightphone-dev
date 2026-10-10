@@ -6,11 +6,17 @@ What changed on v0.2.0 is in PLATFORM.md, "SDK v0.2.0"
 
 Every item ends on a check:
 
-1. **Newest tag.** `gh api repos/lightphone/light-sdk/tags --jq '.[0].name'`, and read the tag's notes
-   and merged PRs since your current tag.
-2. **Submodule commit.** `git -C light-sdk fetch --tags origin && git -C light-sdk checkout <tag>`, commit,
-   then `git ls-tree HEAD light-sdk` equals the tag's commit
-   (`gh api repos/lightphone/light-sdk/git/ref/tags/<tag>`, peeled if annotated).
+1. **Newest tag.** Read the tag's notes and merged PRs since your current tag.
+   ```sh
+   gh api --paginate repos/lightphone/light-sdk/tags --jq '.[].name' \
+     | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1
+   ```
+2. **Submodule commit.** `git -C light-sdk fetch --tags origin`, then `git -C light-sdk checkout <tag>`,
+   and commit. Then `git ls-tree HEAD light-sdk` equals the tag's commit:
+   ```sh
+   git ls-remote https://github.com/lightphone/light-sdk 'refs/tags/<tag>' 'refs/tags/<tag>^{}'
+   ```
+   The `^{}` line, if present, is the commit (the tag is annotated); otherwise the only line is.
 3. **Root targetSdk** equals the SDK's root `targetSdk`:
    `git -C light-sdk show <tag>:build.gradle.kts | grep targetSdk`.
 4. **sdkVersion.** Match it; from v0.2.0 the plugin sets the `sdkVersion` manifest placeholder itself, so
@@ -23,5 +29,5 @@ Every item ends on a check:
    (`aapt2 dump permissions <apk>` or the build's merged manifest).
 9. **Rehearsal.** The builder rehearsal passes on the committed HEAD.
 
-Done when `scripts/check-tool.sh <repo>` (in this skill) prints `all checks passed` with gh available, so
+Done when `scripts/check-tool.sh <repo>` (relative to this skill's directory) prints `all checks passed` with gh available, so
 the newest-tag check runs.

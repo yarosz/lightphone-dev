@@ -1,8 +1,7 @@
 {
   "name": "lightphone-dev",
   "owner": {
-    "name": "yarosz",
-    "url": "https://github.com/yarosz"
+    "name": "yarosz"
   },
   "metadata": {
     "description": "Claude Code plugins for building Light Phone III Tools"
@@ -12,10 +11,9 @@
       "name": "lp3",
       "source": "./plugins/lp3",
       "description": "Skills for building Light Phone III Tools: drive the phone or LightOS emulator safely, start a Tool, measure on the LP3, release, and check a repo before it goes public.",
-      "version": "0.1.0",
       "license": "MIT",
       "homepage": "https://github.com/yarosz/lightphone-dev/tree/main/plugins/lp3",
-      "keywords": ["light-phone", "lightos", "android", "adb"]
+      "keywords": ["light-phone", "lightos", "android", "adb", "lp3"]
     }
   ]
 }

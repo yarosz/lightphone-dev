@@ -22,11 +22,13 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --phone) mode=phone; shift ;;
     --avd) [ $# -ge 2 ] || { usage >&2; exit 64; }; mode=avd; avd="$2"; shift 2 ;;
-    --wait) [ $# -ge 2 ] && [[ $2 =~ ^[0-9]+$ ]] || { usage >&2; exit 64; }; wait="$2"; shift 2 ;;
+    --wait) [ $# -ge 2 ] && [[ $2 =~ ^[0-9]{1,4}$ ]] || { usage >&2; exit 64; }; wait="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 64 ;;
   esac
 done
+poll="${LP3_FIND_POLL:-5}"
+[[ $poll =~ ^[0-9]{1,4}$ ]] || { echo "LP3_FIND_POLL must be 0-9999 seconds" >&2; usage >&2; exit 64; }
 
 # Serials adb lists in state "device" (offline and unauthorized entries can't be driven).
 online() { adb devices </dev/null | awk 'NR > 1 && $2 == "device" { print $1 }'; }
@@ -57,7 +59,7 @@ pick() {
     END { for (k in best) print best[k] }'
 }
 
-deadline=$(( $(date +%s) + wait ))
+deadline=$(( $(date +%s) + 10#$wait ))
 while :; do
   found=$(matches | pick)
   count=$(printf '%s' "$found" | grep -c . || true)
@@ -76,5 +78,5 @@ while :; do
     fi
     exit 1
   fi
-  sleep "${LP3_FIND_POLL:-5}"
+  sleep "$poll"
 done

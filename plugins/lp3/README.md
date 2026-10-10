@@ -21,7 +21,9 @@ and the platform facts the skills point to are in
 | `lp3-new-tool` | Starting a Tool, copying a sibling's setup, or bumping light-sdk. `check-tool.sh` checks the submodule tag, targetSdk, `serverPackage` and script permissions in the committed HEAD. |
 | `lp3-measure` | Performance numbers on the LP3: build checks, harness rules, the splash trap, and `p90.py` for nearest-rank percentiles. |
 | `lp3-release` | Cutting a release, the Tool Library submission (human-approved), and posts. |
-| `prepublish` | Before a repo, branch, export or CI evidence goes public. `prepublish-scan.sh` scans the tree and every commit. |
+| `lp3-prepublish` | Before a Tool repo, branch, export or device-CI evidence goes public. `prepublish-scan.sh` scans the tree and every commit. |
+
+The scan and steps in `lp3-prepublish` work on any repo when you invoke the skill by name.
 
 Scripts are bash (macOS and Linux) and Python 3; each prints its usage with `-h`. They need `adb` on
 PATH; `check-tool.sh` uses `gh` when present.
@@ -29,12 +31,12 @@ PATH; `check-tool.sh` uses `gh` when present.
 ## Tests
 
 ```
-plugins/lp3/tests/run.sh
+tests/run.sh
 ```
 
-runs every script against a fake `adb` (`tests/fake-adb/adb`) and fixture git repos. Nothing touches a
+(relative to this plugin) runs every script against a fake `adb` (`tests/fake-adb/adb`) and fixture git repos. Nothing touches a
 real device or emulator.
 
 ## Licence
 
-MIT, like the rest of the repo's scripts. See [LICENSE](../../LICENSE).
+MIT (see [LICENSE](LICENSE)).

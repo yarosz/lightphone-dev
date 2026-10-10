@@ -1,15 +1,14 @@
 ---
 name: lp3-device
-description: This skill should be used for any adb step on a Light Phone III (LP3, model TLP301) or a LightOS emulator, such as installing or launching a Tool, tapping, sending keys or text, taking screenshots, reading logcat, changing settings, measuring, or running device CI, and when the phone has dropped off adb or several agent sessions share one phone.
+description: This skill should be used for any adb step on a Light Phone III (LP3, model TLP301) or a LightOS emulator, such as installing or launching a Tool, tapping, sending keys or text, taking screenshots, reading logcat, changing settings, measuring, or running device CI, and when the phone has dropped off adb or several agent sessions share one phone. Typical requests are "take a screenshot on the LP3", "tap through my Tool", "the phone dropped off adb" and "who has the phone".
 ---
 
 # Drive an LP3 or LightOS emulator safely
 
 The scripts below live in this skill's `scripts/` directory; run them by that path. Each one prints its
 usage with `-h`. Device facts (keys, wireless adb, the USB drop, the emulator setup) are in the
-lightphone-dev repo's PLATFORM.md ([relative](../../../../PLATFORM.md),
-[GitHub](https://github.com/yarosz/lightphone-dev/blob/main/PLATFORM.md)); this skill links to its
-sections by name instead of repeating them.
+lightphone-dev repo's [PLATFORM.md](https://github.com/yarosz/lightphone-dev/blob/main/PLATFORM.md); this
+skill names its sections instead of repeating them.
 
 Use fixed script files for device work, not compound adb one-liners: worktree-isolated agent sessions
 refuse compound commands, and a script runs the same checks every time.
@@ -17,23 +16,29 @@ refuse compound commands, and a script runs the same checks every time.
 ## Every session
 
 1. **Find the device.** `scripts/lp3-find.sh --phone` prints the one LP3 (by model TLP301, USB or
-   wireless) or fails. For an emulator, `scripts/lp3-find.sh --avd <avd>`. Done when it printed one
+   wireless) or fails. For an emulator, `scripts/lp3-find.sh --avd <avd>`; right after starting one, use
+   `scripts/lp3-find.sh --avd <avd> --wait 300`, because a boot takes minutes. Done when it printed one
    serial. Pass that serial with `-s <serial>` on every adb call.
 2. **Take the lease, if other sessions share the device.** See [references/sharing.md](references/sharing.md).
-   Done when `scripts/lp3-lease.sh take` printed your lease.
-3. **Save every setting you will change**, to a file:
-   `scripts/lp3-settings.sh <serial> save <file> global:stay_on_while_plugged_in ...`.
-4. **Drive through the guard.** `scripts/lp3-drive.sh <serial> <pkg> launch|tap|swipe|key|text|shot|stop`.
+   Done when `scripts/lp3-lease.sh take "<holder>" "<purpose>" 15` printed your lease.
+3. **Save every setting you will change**, to a file named for your package and holder, so two sessions
+   on one package don't collide:
+   `scripts/lp3-settings.sh <serial> save "$HOME/.cache/lp3-settings-<pkg>-<holder>" global:stay_on_while_plugged_in ...`.
+4. **Drive input through the guard.** `scripts/lp3-drive.sh <serial> <pkg> launch|tap|swipe|key|text|shot|stop`.
    It checks before every input that the device is awake, unlocked and showing `<pkg>`. Exit 3 means
    stop and ask the human for the one action the guard names.
-5. **Leave it as found.** Then release the lease. Done when every check in "Leave it as found" passes.
+   Only input (tap, swipe, key, text, launch) goes through the guard. `adb install -r`, `uninstall`,
+   `settings put`, `logcat` and `screencap` are plain `adb -s <serial> ...` calls once you hold the lease
+   (if sharing) and step 1 found the device. A dozing phone may drop off adb, so run
+   `scripts/lp3-guard.sh --pre-launch <serial> <pkg>` (awake and unlocked) before an install too.
+5. **Leave it as found** (the checklist below), then release the lease. Done when every check passes and
+   `scripts/lp3-lease.sh release "<holder>"` printed `LP3 free`.
 
 ## Rules
 
-**Find the device, never assume it.** Pick the phone by model and the emulator by AVD name, always
-through `lp3-find.sh`. Never use `adb -d` (it stops finding the phone once it is wireless), never take
-"the only device", and never run `adb kill-server` (it drops every session's devices). An agent once
-assumed the wrong phone, and a CI run picked another session's emulator.
+**Find the device, never assume it** (step 1). Never use `adb -d` (it stops finding the phone once it is
+wireless), never take "the only device", and never run `adb kill-server` (it drops every session's
+devices). An agent once assumed the wrong phone, and a CI run picked another session's emulator.
 
 **When the phone is missing, look before blaming the cable.** In order:
 1. `adb devices -l`: is it there as `adb-<serial>-<suffix>._adb-tls-connect._tcp`? Ask any other
@@ -42,34 +47,40 @@ assumed the wrong phone, and a CI run picked another session's emulator.
    flaps with `TransportsActive = ("CC")` only, ask the human to plug it into a charger briefly, then
    back into the host (PLATFORM.md, "Driving devices from scripts").
 3. `scripts/lp3-find.sh --phone --wait 600` ends as soon as adb sees it again. No blind retries.
+4. When it is back, use the serial `lp3-find.sh --phone` printed from then on. It may have changed, for
+   example from the USB serial to the wireless entry.
 
 An agent once blamed the cable while another session had moved the phone to wireless.
 
-**Guard every input.** Before any tap, swipe, key, text or launch: `dumpsys power` mWakefulness is
-Awake, no keyguard is showing, and `dumpsys window` mCurrentFocus names your package (not
-NotificationShade, a keyguard, or `com.lightos`). `lp3-drive.sh` runs `lp3-guard.sh` for you; call the
-guard yourself before any adb input you send another way. Screenshots and log reads need no guard. Volume
-keys once landed on the LightOS home screen and may have zeroed the ringer; a dozing phone failed CI
-three times; the guard pattern ran 184 focus checks with 0 misfires in one project.
+**Guard every input** (step 4). The guard reads `dumpsys power` (Awake), the keyguard state from both
+`dumpsys window policy` and `dumpsys activity activities` (it needs `isKeyguardShowing=false` as proof,
+so unfamiliar output is unsafe), and the global `dumpsys window displays` mCurrentFocus (a window whose
+component is your package, not NotificationShade, a keyguard, or `com.lightos`). It reads only these live sections:
+the full `dumpsys window` starts with a saved LAST ANR section whose focus may be stale. Call `scripts/lp3-guard.sh` yourself before any input
+you send another way. Volume keys once landed on the LightOS home screen and may have zeroed the ringer;
+a dozing phone failed CI three times; the guard pattern ran 184 focus checks with 0 misfires in one
+project.
 
 **Leave waking and unlocking to the human.** When the guard fails, stop and ask the human to wake or
 unlock the phone. Never press POWER (it sleeps the LP3 and drops adb) and never wake or unlock with key
-events; `lp3-drive.sh key` refuses POWER, SLEEP and WAKEUP. Auto mode blocks waking over adb anyway.
-`wm dismiss-keyguard` still unlocks a phone with no PIN, but don't build CI on it.
+events; `lp3-drive.sh key` refuses POWER, SLEEP, WAKEUP and SOFT_SLEEP in any spelling. Some agent
+harnesses (Claude Code's auto mode, for one) block waking or unlocking over adb, and a person may be
+using the phone, so ask the human. `wm dismiss-keyguard` still unlocks a phone with no PIN, but don't
+build CI on it.
 
 **Read the lease, then ask.** A quiet logcat or an old install time doesn't mean the phone is free: a
 person may be reading on it.
 
-**Save settings to a file, restore them yourself.** `lp3-settings.sh save` writes the originals to a file
-and refuses to overwrite one that wasn't restored; `restore` deletes keys that were unset (null) instead
-of writing 0. Examples: `global:stay_on_while_plugged_in`, the grayscale filter
-`secure:accessibility_display_daltonizer_enabled`. A killed run once lost the original stay-on value
-because it lived in a shell variable, and another restored null as 0.
+**Save settings to a file, restore them yourself** (step 3). `save` refuses to overwrite a file that
+wasn't restored, and `restore` deletes keys that were unset (null) instead of writing 0. Examples:
+`global:stay_on_while_plugged_in`, the grayscale filter `secure:accessibility_display_daltonizer_enabled`.
+A killed run once lost the original stay-on value because it lived in a shell variable, and another
+restored null as 0.
 
-**Leave it as found.** At the end of every session:
+**Leave it as found** (step 5). At the end of every session:
 - `scripts/lp3-drive.sh <serial> <pkg> stop`: force-stop your package only.
 - Uninstall only probes you installed.
-- `scripts/lp3-settings.sh <serial> restore <file>`.
+- `scripts/lp3-settings.sh <serial> restore "$HOME/.cache/lp3-settings-<pkg>-<holder>"`.
 - `adb -s <serial> shell pm list packages` still lists your Tool and the stock Tools (one session's
   uninstall test removed Light's Weather Tool from a shared phone).
 - Optional: hash the Tool's data file before and after an automated run.
@@ -98,10 +109,10 @@ awake.
 | Script | Does |
 |---|---|
 | `lp3-find.sh [--phone \| --avd <name>] [--wait <s>]` | Prints exactly one serial, or exits 1 (none) or 2 (several). |
-| `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused; exit 3 with the reason. |
+| `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused; exit 3 with the reason. `--pre-launch` still refuses a locked phone. |
 | `lp3-drive.sh <serial> <pkg> <verb> ...` | Guarded `launch`, `tap`, `swipe`, `key`, `text`; unguarded `shot`, `stop`. |
 | `lp3-settings.sh <serial> save <file> <ns>:<key>... \| restore <file>` | Saves originals to a file; restores, deleting nulls. |
 | `lp3-lease.sh take\|renew\|release\|show` | Turn-taking between sessions ([references/sharing.md](references/sharing.md)). |
 
-The plugin's tests run every script against a fake adb: `plugins/lp3/tests/run.sh` in the
-lightphone-dev repo.
+The plugin's tests run every script against a fake adb: `../../tests/run.sh` (relative to this skill's
+directory).

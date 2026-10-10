@@ -7,8 +7,11 @@
 #   dev/<serial>/model           getprop ro.product.model
 #   dev/<serial>/serialno        getprop ro.serialno
 #   dev/<serial>/avd             `emu avd name`
-#   dev/<serial>/power, window   dumpsys power, dumpsys window
-#   dev/<serial>/window.launched replaces window when `am start` runs
+#   dev/<serial>/power, activity dumpsys power, dumpsys activity activities
+#   dev/<serial>/window.policy   dumpsys window policy
+#   dev/<serial>/window.displays dumpsys window displays
+#   dev/<serial>/window.lastanr  optional; the full `dumpsys window` prints lastanr, policy, displays
+#   dev/<serial>/window.displays.launched  replaces window.displays when `am start` runs
 #   dev/<serial>/settings/<ns>.<key>   a setting's value; no file = null
 #   log                          every call, one per line
 set -uo pipefail
@@ -48,15 +51,48 @@ case "$1" in
   *) echo "fake adb: unknown command: $*" >&2; exit 97 ;;
 esac
 
-# adb shell joins its arguments into one command line that the device's shell parses again.
-eval "set -- $*"
+# adb shell joins its arguments into one command line that the device's shell parses again. This fake
+# never evaluates that line on the host. An argument holding a shell metacharacter (; | & $ ` < > newline
+# CR) is logged and refused with exit 96, so the tests can assert that injection never reaches `shell`.
+# Anything else is split into words here: whitespace separates words, and backslash escapes and single or
+# double quotes group them, which is all a quoted (printf %q) argument without metacharacters needs.
+for a in "$@"; do
+  case "$a" in
+    *[\;\|\&\$\`\<\>]*|*$'\n'*|*$'\r'*)
+      echo "fake adb: shell metacharacters: $(printf '%q' "$a")" >> "$state/log"
+      echo "fake adb: shell metacharacters in: $(printf '%q' "$a")" >&2; exit 96 ;;
+  esac
+done
+line="$*" words=() word="" inword=0 quote="" i=0
+while [ "$i" -lt "${#line}" ]; do
+  c="${line:i:1}"; i=$((i + 1))
+  if [ -n "$quote" ]; then
+    if [ "$c" = "$quote" ]; then quote=""; else word+="$c"; fi
+    continue
+  fi
+  case "$c" in
+    ' '|$'\t') if [ "$inword" -eq 1 ]; then words+=("$word"); word="" inword=0; fi ;;
+    \\) word+="${line:i:1}"; i=$((i + 1)); inword=1 ;;
+    "'"|'"') quote="$c"; inword=1 ;;
+    *) word+="$c"; inword=1 ;;
+  esac
+done
+[ -z "$quote" ] || { echo "fake adb: unterminated quote: $line" >&2; exit 96; }
+[ "$inword" -eq 0 ] || words+=("$word")
+set -- ${words[@]+"${words[@]}"}
 case "$1 ${2:-}" in
   "getprop ro.product.model") cat "$dev/model" 2>/dev/null ;;
   "getprop ro.serialno") cat "$dev/serialno" 2>/dev/null ;;
   "dumpsys power") cat "$dev/power" ;;
-  "dumpsys window") cat "$dev/window" ;;
+  "dumpsys window")
+    case "${3:-}" in
+      "") cat "$dev/window.lastanr" 2>/dev/null; cat "$dev/window.policy" "$dev/window.displays" ;;
+      policy|displays) cat "$dev/window.$3" ;;
+      *) echo "fake adb: unknown: $*" >&2; exit 97 ;;
+    esac ;;
+  "dumpsys activity") [ "${3:-}" = activities ] || { echo "fake adb: unknown: $*" >&2; exit 97; }; cat "$dev/activity" ;;
   "input "*) ;;
-  "am start") [ -f "$dev/window.launched" ] && cp "$dev/window.launched" "$dev/window"; echo "Status: ok" ;;
+  "am start") [ -f "$dev/window.displays.launched" ] && cp "$dev/window.displays.launched" "$dev/window.displays"; echo "Status: ok" ;;
   "am force-stop") ;;
   "settings get") cat "$dev/settings/$3.$4" 2>/dev/null || echo null ;;
   "settings put") mkdir -p "$dev/settings"; printf '%s\n' "$5" > "$dev/settings/$3.$4" ;;

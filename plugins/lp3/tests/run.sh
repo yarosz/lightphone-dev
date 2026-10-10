@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run every test for the lp3 plugin's scripts. No device or emulator is touched: adb is a fake on PATH.
 #
-#   plugins/lp3/tests/run.sh            # all tests
-#   plugins/lp3/tests/run.sh lease      # only test-lease.sh
+#   tests/run.sh            # all tests (paths relative to the plugin)
+#   tests/run.sh lease      # only test-lease.sh
 set -uo pipefail
 
 TESTS="$(cd "$(dirname "$0")" && pwd)"
@@ -13,9 +13,25 @@ export TESTS SKILLS DEVICE
 pass=0 fail=0
 failed_names=()
 
+# Every temp directory lives under one lp3-test.* directory per run, removed on exit. Its pid file lets a
+# later run remove what a killed run left behind; an older layout (an adb/ directory, no pid file) is
+# removed once it is an hour old.
+tmp_root="${TMPDIR:-/tmp}"; tmp_root="${tmp_root%/}"
+for d in "$tmp_root"/lp3-test.*; do
+  [ -d "$d" ] || continue
+  if [ -f "$d/pid" ]; then
+    kill -0 "$(cat "$d/pid")" 2>/dev/null || rm -rf "$d"
+  elif [ -d "$d/adb" ] && [ -n "$(find "$d" -maxdepth 0 -mmin +60)" ]; then
+    rm -rf "$d"
+  fi
+done
+RUN_DIR=$(mktemp -d "$tmp_root/lp3-test.XXXXXX")
+echo $$ > "$RUN_DIR/pid"
+trap 'rm -rf "$RUN_DIR"' EXIT
+
 # One temp directory per test; FAKE_ADB_STATE points into it.
 new_state() {
-  WORK=$(mktemp -d "${TMPDIR:-/tmp}/lp3-test.XXXXXX")
+  WORK=$(mktemp -d "$RUN_DIR/t.XXXXXX")
   export FAKE_ADB_STATE="$WORK/adb"
   mkdir -p "$FAKE_ADB_STATE/dev"
   : > "$FAKE_ADB_STATE/log"
@@ -31,12 +47,42 @@ add_device() {
   [ -z "${3:-}" ] || printf '%s\n' "$3" > "$d/serialno"
 }
 
-# set_screen <serial> <wakefulness> <focus> [keyguard true|false]
+# set_screen <serial> <wakefulness> <focus> [window keyguard true|false] [activity keyguard true|false]
+# The window and power lines follow `dumpsys` output read from a real LP3 (LightOS 582, Android 14,
+# unlocked), which prints isKeyguardShowing=false: every unlocked fixture carries it, because the guard
+# needs that positive evidence. On the real LP3, isKeyguardShowing and mDreamingLockscreen print under
+# `dumpsys window displays`; the KeyguardServiceDelegate lines under `dumpsys window policy`. The locked
+# state wasn't captured; it flips isKeyguardShowing, or KeyguardController's mKeyguardShowing in `dumpsys
+# activity activities`. The fake adb serves
+# window.policy for `dumpsys window policy`, window.displays for `dumpsys window displays`, and
+# window.lastanr (if any), then policy, then displays for the full `dumpsys window`, the order a real
+# LP3 prints them in.
 set_screen() {
   local d="$FAKE_ADB_STATE/dev/$1"
   printf 'POWER MANAGER (dumpsys power)\n  mWakefulness=%s\r\n  mWakefulnessChanging=false\n' "$2" > "$d/power"
-  printf 'WINDOW MANAGER WINDOWS (dumpsys window windows)\n  mShowingLockscreen=%s mShowingDream=false\n  mCurrentFocus=%s\r\n  mFocusedApp=null\n' \
-    "${4:-false}" "$3" > "$d/window"
+  {
+    printf 'WINDOW MANAGER POLICY STATE (dumpsys window policy)\n'
+    printf '    mKeyguardOccluded=false mKeyguardOccludedChanged=false mPendingKeyguardOccluded=false\n'
+    printf '    mAllowLockscreenWhenOnDisplays=false mLockScreenTimeout=60000 mLockScreenTimerActive=false\n'
+    printf '    KeyguardServiceDelegate\n      showing=false\n      deviceHasKeyguard=true\n      KeyguardStateMonitor\n'
+    printf '        mIsShowing=false\n'
+  } > "$d/window.policy"
+  {
+    printf 'WINDOW MANAGER DISPLAY CONTENTS (dumpsys window displays)\n'
+    printf '  Display: mDisplayId=0 rotation=0\n'
+    printf '  mCurrentFocus=%s\r\n' "$3"
+    printf '    mKeyguardDrawComplete=true mWindowManagerDrawComplete=true\n'
+    printf '    mShowingDream=false mDreamingLockscreen=false\n'
+    printf '    isKeyguardShowing=%s\n' "${4:-false}"
+  } > "$d/window.displays"
+  printf 'ACTIVITY MANAGER ACTIVITIES (dumpsys activity activities)\n  KeyguardController:\n    mKeyguardShowing=%s\n    mAodShowing=false\n' \
+    "${5:-false}" > "$d/activity"
+}
+
+# set_last_anr <serial> <focus>: a saved LAST ANR section, printed before the live ones
+set_last_anr() {
+  printf 'WINDOW MANAGER LAST ANR (dumpsys window lastanr)\n  ANR time: 2026-10-09 12:00:00\n  mCurrentFocus=%s\n  isKeyguardShowing=false\n' \
+    "$2" > "$FAKE_ADB_STATE/dev/$1/window.lastanr"
 }
 
 focus_of() { echo "Window{1a2b3c u0 $1/$1.MainActivity}"; }

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Tests for lp3-find.sh. Sourced by run.sh.
 F="$DEVICE/lp3-find.sh"
 
@@ -66,3 +67,9 @@ expect_exit 1 "--wait: gives up at the deadline" "$F" --phone --wait 1
 expect_exit 64 "bad option" "$F" --bogus
 expect_exit 0 "-h" "$F" -h
 check "-h prints usage" out_has "lp3-find.sh"
+
+# numbers are checked before arithmetic or sleep
+new_state
+expect_exit 64 "--wait over 4 digits" "$F" --phone --wait 99999999999999999999
+LP3_FIND_POLL="x[\$(touch $WORK/canary)]" expect_exit 64 "LP3_FIND_POLL with a command" "$F" --phone --wait 1
+check "LP3_FIND_POLL payload never ran" test ! -e "$WORK/canary"

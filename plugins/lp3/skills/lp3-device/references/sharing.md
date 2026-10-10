@@ -11,15 +11,18 @@ or injects input breaks any other session's run on that device.
 - Create and change the lease only with the script, so there is one format. Two hand-written formats
   once coexisted.
 - `lp3-lease.sh take "<holder>" "<purpose>" 15` takes a free phone. Exit 2 means held: read the lease and
-  ask the holder.
+  ask the holder. take, renew and release run under a lock (`<lease>.lock`), so when sessions race,
+  exactly one wins; exit 3 means you lost the race or the lock stayed busy, so look again.
 - A turn is about 15 minutes. `lp3-lease.sh renew "<holder>" 15` while you wait on the human. Agree longer
   holds with the other sessions first.
 - A person using the phone holds it with `lp3-lease.sh take "<name>" "<purpose>" open`, which writes
   `until: open`. Nobody takes over an open lease.
 - `lp3-lease.sh release "<holder>"` releases only your own lease. In one session, 11 of 21 releases were a
   bare `rm` of whatever lease was there.
-- Clear someone else's lease only when it has expired. `take` does that for you, and leaves a held or
-  unreadable lease alone.
+- Clear someone else's lease only when it has expired: an expired lease means the holder's turn is over.
+  `until: open` never expires. To take over: run `lp3-lease.sh show`, send the heads-up below to the
+  active sessions, then run `take`. `take` clears only an expired lease, and leaves a held or unreadable
+  one alone.
 
 ## Emulators
 

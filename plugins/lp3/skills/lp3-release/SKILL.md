@@ -1,19 +1,19 @@
 ---
 name: lp3-release
-description: This skill should be used when cutting a release of a LightOS Tool, posting publicly about a Tool, or submitting a Tool build to Light's Tool Library.
+description: This skill should be used when cutting a release of a LightOS Tool, posting publicly about a Tool, or submitting a Tool build to Light's Tool Library. Typical requests are "cut a release of my Tool", "tag v1.2.0" and "submit the build to the Tool Library".
 ---
 
 # Release a LightOS Tool
 
 The human drives the outward steps; agents prepare, check and draft. Tool Library and versioning facts
-are in the lightphone-dev repo's PLATFORM.md, "Shipping through Light" ([relative](../../../../PLATFORM.md),
-[GitHub](https://github.com/yarosz/lightphone-dev/blob/main/PLATFORM.md#shipping-through-light)).
+are in the lightphone-dev repo's PLATFORM.md, "Shipping through Light"
+([GitHub](https://github.com/yarosz/lightphone-dev/blob/main/PLATFORM.md#shipping-through-light)).
 
 ## Steps
 
-1. **SDK check first.** Run the lp3-new-tool skill's `check-tool.sh` with `gh` available. If light-sdk
-   isn't at Light's newest tag, bump it in its own PR before the release. A release PR cut on the old SDK
-   once had to be redone.
+1. **SDK check first.** Run `../lp3-new-tool/scripts/check-tool.sh <repo>` (relative to this skill's
+   directory) with `gh` available. If light-sdk isn't at Light's newest tag, bump it in its own PR before
+   the release. A release PR cut on the old SDK once had to be redone.
 2. **Release branch.**
    - Bump `versionCode` above the newest Version in the Tool Library, and `versionName` to semver with no
      pre-release suffix. Assert both with a script, not by eye, for example:
@@ -23,18 +23,31 @@ are in the lightphone-dev repo's PLATFORM.md, "Shipping through Light" ([relativ
      ```
    - Signed commit, then a PR.
    - Run every check through the repo's toolchain (`mise exec -- ...`), so the pinned JDK and Gradle run.
-   - Upgrade check on a phone or emulator: install the previous release, create data, install the new
-     build over it, and confirm the data is still there.
+   - Upgrade check on a phone or emulator, driven with the lp3-device skill:
+     ```sh
+     adb -s <serial> install <previous.apk>
+     # create data in the Tool (through ../lp3-device/scripts/lp3-drive.sh)
+     adb -s <serial> install -r <new.apk>
+     # confirm the data is still there
+     ```
    - Minified release build, the builder rehearsal on the committed HEAD, and CI with device signoffs.
-3. **Merge and tag.**
+3. **Merge and tag the merge commit**, not whatever `origin/main` points at by then:
    ```sh
    gh pr merge <n> --squash --match-head-commit <tested-sha>
-   git fetch origin && git rev-parse origin/main^{tree}    # equals the CI-tested commit's tree
-   git rev-parse <tested-sha>^{tree}
-   git tag -s v<version> origin/main -m v<version> && git push origin v<version>
+   m=$(gh pr view <n> --json mergeCommit --jq .mergeCommit.oid)
+   [ -n "$m" ] || { echo "no merge commit yet; wait and retry"; exit 1; }
+   git fetch origin
+   git rev-parse "$m^{tree}"             # must equal the next line
+   git rev-parse "<tested-sha>^{tree}"
+   ```
+   If the two trees differ, stop: CI didn't test what merged. Otherwise:
+   ```sh
+   git tag -s v<version> "$m" -m v<version>
+   git push origin v<version>
    gh release create v<version> --verify-tag --latest --notes-file <notes>
    ```
-   Anything a post links to (a GIF, a screenshot) must exist at the tag.
+   Anything a post links to (a GIF, a screenshot) must exist at the tag. Before the repo or CI evidence
+   goes public, use the lp3-prepublish skill.
 4. **Release before any public post**, and at the end of every milestone. A post once went up with no
    release behind it, so readers couldn't find the build it described.
 5. **Tool Library**, in Light's dashboard, by the human or by an agent with explicit approval.

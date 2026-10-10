@@ -101,7 +101,7 @@ takes focus or injects keys breaks any other session's run. What worked:
   so only one session wins. Agent turns are 15 minutes or less. Release it, and say "LP3 free". The
   sessions ran this protocol by hand;
   [lp3-lease.sh](../plugins/lp3/skills/lp3-device/scripts/lp3-lease.sh) is a script written afterwards
-  for this repo that does the same.
+  for this repo that does the same, under a lock so a race has exactly one winner.
 - **Heads-up messages** between sessions before and after each hold. The sessions also traded findings
   this way. Chess found that LightOS acts on key-ups a Tool declined, and Reader shipped the same fix for
   its volume keys the same night.

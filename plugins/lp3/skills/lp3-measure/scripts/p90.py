@@ -9,8 +9,10 @@ found in key=value pairs forms its own.
 
 --drop N drops the first N samples of each series (warm-up frames, a first cold open).
 
-Prints one line per series: name, n, P50, P90, P99, max. Percentiles are nearest-rank: the value at
-1-based rank ceil(p * n) in sorted order, so every reported number is a real sample.
+Prints one line per series: name, n, P50, P90, P99, max, for example
+    open_ms n=20 p50=120 p90=130 p99=141 max=141
+Percentiles are nearest-rank: the value at 1-based rank ceil(p * n) in sorted order, so every reported
+number is a real sample.
 Exit 0 = printed. 1 = no samples. 64 = usage.
 """
 import argparse
@@ -46,10 +48,12 @@ def fmt(x):
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--key")
-    parser.add_argument("--drop", type=int, default=0)
-    parser.add_argument("files", nargs="*")
+    parser = argparse.ArgumentParser(
+        prog="p90.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--key", metavar="NAME", help="count only NAME=<number> values")
+    parser.add_argument("--drop", type=int, default=0, metavar="N",
+                        help="drop the first N samples of each series (default 0)")
+    parser.add_argument("files", nargs="*", metavar="FILE", help="input files (default: stdin)")
     try:
         args = parser.parse_args(argv)
     except SystemExit as e:

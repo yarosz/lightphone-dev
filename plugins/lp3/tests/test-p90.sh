@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Tests for p90.py. Sourced by run.sh.
 P="$SKILLS/lp3-measure/scripts/p90.py"
 
@@ -35,3 +36,7 @@ expect_exit 1 "dropped everything" python3 "$P" --drop 50 "$WORK/ten"
 expect_exit 64 "bad --drop" python3 "$P" --drop -1 "$WORK/ten"
 expect_exit 64 "unknown option" python3 "$P" --nope
 expect_exit 0 "-h" python3 "$P" -h
+check "-h shows the input format" out_has "key=value"
+check "-h shows the output format" out_has "name, n, P50, P90, P99, max"
+check "-h shows the exit codes" out_has "Exit 0 = printed"
+check "-h names the arguments" out_has "--key NAME"

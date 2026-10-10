@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# A fake gh for the tests. It answers
+#   gh api [--paginate] repos/lightphone/light-sdk/tags --jq '.[] | "\(.name) \(.commit.sha)"'
+# from the file named by FAKE_GH_TAGS (one "<tag> <commit sha>" per line) and never touches the network.
+set -uo pipefail
+[ "${1:-}" = api ] || { echo "fake gh: only api is supported: $*" >&2; exit 97; }
+shift
+jq="" path=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --paginate) shift ;;
+    --jq) jq="$2"; shift 2 ;;
+    *) path="$1"; shift ;;
+  esac
+done
+[ "$path" = repos/lightphone/light-sdk/tags ] || { echo "fake gh: unknown path: $path" >&2; exit 97; }
+case "$jq" in
+  '.[] | "\(.name) \(.commit.sha)"') cat "${FAKE_GH_TAGS:?FAKE_GH_TAGS not set}" ;;
+  *) echo "fake gh: unknown --jq: $jq" >&2; exit 97 ;;
+esac

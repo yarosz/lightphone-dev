@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Tests for lp3-settings.sh. Sourced by run.sh.
 X="$DEVICE/lp3-settings.sh"
 S=SER-ONE
@@ -46,3 +47,30 @@ check "restore: value with a space intact" grep -qx "two words" "$SET/secure.som
 new_state
 expect_exit 1 "save with the device gone" "$X" SER-GONE save "$WORK/gone" global:stay_on_while_plugged_in
 check "save with the device gone: no file" test ! -e "$WORK/gone"
+
+# values are kept exactly: leading and trailing tabs, inner spaces
+new_state; add_device $S TLP301 $S
+SET="$FAKE_ADB_STATE/dev/$S/settings"
+printf '\tlead\n' > "$SET/secure.lead_tab"
+printf 'trail\t\n' > "$SET/secure.trail_tab"
+printf ' two  spaces \n' > "$SET/secure.spaces"
+cp "$SET/secure.lead_tab" "$WORK/lead.want"; cp "$SET/secure.trail_tab" "$WORK/trail.want"; cp "$SET/secure.spaces" "$WORK/spaces.want"
+expect_exit 0 "save values with tabs and spaces" "$X" $S save "$WORK/tabs" secure:lead_tab secure:trail_tab secure:spaces
+echo changed > "$SET/secure.lead_tab"; echo changed > "$SET/secure.trail_tab"; echo changed > "$SET/secure.spaces"
+expect_exit 0 "restore values with tabs and spaces" "$X" $S restore "$WORK/tabs"
+check "restore: leading tab kept" cmp -s "$SET/secure.lead_tab" "$WORK/lead.want"
+check "restore: trailing tab kept" cmp -s "$SET/secure.trail_tab" "$WORK/trail.want"
+check "restore: spaces kept" cmp -s "$SET/secure.spaces" "$WORK/spaces.want"
+
+# a multi-line value can't be saved one per line: refused
+printf 'line one\nline two\n' > "$SET/secure.multi"
+expect_exit 64 "save refuses a multi-line value" "$X" $S save "$WORK/multi" secure:multi
+check "save multi-line: no file written" test ! -e "$WORK/multi"
+
+# a CR or a trailing newline can't survive save and restore exactly: refused at save
+printf 'a\rb\n' > "$SET/secure.cr_inside"
+expect_exit 64 "save refuses a value with a CR" "$X" $S save "$WORK/cr" secure:cr_inside
+check "save CR: no file written" test ! -e "$WORK/cr"
+printf 'value\n\n' > "$SET/secure.trailing_nl"
+expect_exit 64 "save refuses a value with a trailing newline" "$X" $S save "$WORK/nl" secure:trailing_nl
+check "save trailing newline: no file written" test ! -e "$WORK/nl"

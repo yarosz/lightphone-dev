@@ -109,5 +109,5 @@ uncommitted work. We ran it on every branch, and a weekly job runs it against Li
 
 Signoff statuses and PR comments are public, so CI evidence carries no device serials, hostnames or
 local paths. Chess's `release-check.sh scan` greps for private patterns supplied through an environment
-variable, so the patterns themselves never get committed. [prepublish-scan.sh](../plugins/lp3/skills/prepublish/scripts/prepublish-scan.sh)
+variable, so the patterns themselves never get committed. [prepublish-scan.sh](../plugins/lp3/skills/lp3-prepublish/scripts/prepublish-scan.sh)
 is the version we ran on this repo.

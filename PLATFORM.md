@@ -427,7 +427,8 @@ Reader and Chess moved to it (light-reader #54, light-chess #36):
   light-reader (`.mise/tasks/ui`) that prints a compact UI tree with all text, taps by label and chains
   steps. android-mcp was about 0.5 s faster per call, but its snapshot left out non-interactive text,
   so checking content needed screenshots.
-- Before every injected key or tap, check that `dumpsys window` `mCurrentFocus` names your Tool. A
+- Before every injected key or tap, check that `dumpsys window displays` `mCurrentFocus` names your
+  Tool (the full `dumpsys window` starts with a saved LAST ANR section, so its first focus may be stale). A
   script once sent volume keys to the LightOS home screen and may have left the LP3 ringer at 0/7.
 - Say whether the LP3 is attached (`adb devices`) before any step that needs it, and check its serial
   rather than assume which phone it is: an agent once assumed the wrong phone was attached.
@@ -435,7 +436,7 @@ Reader and Chess moved to it (light-reader #54, light-chess #36):
   unlock the LP3 for CI: auto mode blocks waking over adb, and a dozing phone failed CI three times.
   Before every input, check that the phone is awake (`dumpsys power` mWakefulness is Awake) and
   unlocked, as well as the focus, and stop and ask the human to wake it rather than tap blind (the lp3
-  plugin's `lp3-guard.sh`).
+  plugin's [lp3-guard.sh](plugins/lp3/skills/lp3-device/scripts/lp3-guard.sh)).
 - In a shell loop over devices (`adb devices | while read ...`), give every `adb shell` inside it
   `</dev/null`: `adb shell` reads the loop's stdin and swallows the rest of the device list
   (light-reader #54).
@@ -466,7 +467,7 @@ Reader and Chess moved to it (light-reader #54, light-chess #36):
   true, USB powered: false" while adb worked. When the phone disappears, first look for its wireless
   entry (and ask any other sessions sharing it whether they moved it), then read the host's USB state,
   and only then ask the human. Watch for it with a script that ends when adb sees it
-  (`lp3-find.sh --wait`); don't retry blindly.
+  ([`lp3-find.sh --wait`](plugins/lp3/skills/lp3-device/scripts/lp3-find.sh)); don't retry blindly.
 - One phone, several sessions: a run that installs, takes focus or injects input collides with any
   other session's run on the same phone. Take turns through a lease file
   ([docs/how-we-worked.md](docs/how-we-worked.md),
