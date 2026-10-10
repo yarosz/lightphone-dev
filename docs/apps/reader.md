@@ -22,8 +22,13 @@ model, because inference runtimes need native code, which Light doesn't allow.
 - **09-28:** the glossary rename and a domain pass.
 - **09-28 to 29:** chapters and the table of contents (N4 a), a volume-key fix found by Chess, then
   chapter titles and progress in the reading view (N4 b).
-
-Nothing has been submitted to Light yet.
+- **09-29:** v0.1.0, the first GitHub release, then Parts in Contents and the reading controls (N5).
+- **09-30:** v0.2.0: About, a 15 sp font size, keep-awake, and an APK cut from 27.1 to 5.2 MB by dropping
+  the SDK's unused QR-scanner dependencies.
+- **10-01 to 03:** open-time work (N6) on a release build. Every open had timed about 0.95 s until a trace
+  showed it was the SDK's splash. Lazy parsing then made long Books open in about 114 ms (ADR 0009):
+  v0.3.0 and v0.3.1, which also stopped the "Opening…" line from flashing.
+- **10-09:** v0.3.2 on SDK v0.2.0, submitted to Light's Tool Library and awaiting approval.
 
 ## What worked
 
@@ -36,6 +41,11 @@ Nothing has been submitted to Light yet.
 - **The done-when on every ledger item**, and a public evidence table.
 - **Domain passes** before each milestone, with `domain-drift.sh` at 0 and a signed tag.
 - **Local CI** that runs on the real phone and posts signoff statuses.
+- **A GitHub release before every public update.** A discussion post once went up with no release behind
+  it, so readers couldn't find the build it described. Now each milestone ends with a release, and posts
+  always match "Latest".
+- **Loading copy that never flashes.** "Opening…" appears only after 500 ms and then stays at least
+  500 ms.
 
 ## What it cost
 
@@ -50,7 +60,9 @@ milestone.
 - `scripts/ci.sh`: local CI with a device round trip and GitHub signoff statuses.
 - `scripts/light-build.sh`: rehearses Light's release builder on the committed HEAD.
 - `scripts/emulator-build.sh`: swaps `serverPackage` for an emulator build and restores it.
-- `scripts/perf.sh`: P90 timings from the phone.
+- `scripts/perf.sh`: P90 timings from the phone; `-r` measures a release build with its baseline profile.
+- `mise.toml` task `tool-lp3`: builds and installs on the phone found by model, over USB or wireless.
+- ADR 0009: a performance bar written as an ADR, with the measurements behind it.
 - `scripts/domain-drift.sh` and `docs/domain-ignore.txt`.
 - `.mise/tasks/ui`: tap by label, keys, screenshots.
 - `RELEASING.md`: the checklist for Light's version rules.
