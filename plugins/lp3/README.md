@@ -8,10 +8,18 @@ and the platform facts the skills point to are in
 
 ## Install
 
+Install the plugin before using any of its scripts. Inside Claude Code:
+
 ```
 /plugin marketplace add yarosz/lightphone-dev
 /plugin install lp3@lightphone-dev
 ```
+
+From a shell: `claude plugin marketplace add yarosz/lightphone-dev`, then
+`claude plugin install lp3@lightphone-dev`.
+
+The skills run their scripts from the installed plugin. Don't fetch and run them from GitHub URLs:
+Claude Code's auto mode blocks that as external code.
 
 ## Skills
 

@@ -55,6 +55,8 @@ are in the lightphone-dev repo's PLATFORM.md, "Shipping through Light"
      the submit. Not a stop before each step.
    - Register: a title, the GitHub repo, a one-line description and one tag. The package name comes from
      `lighttool.toml` on the default branch and can't change later.
+   - The description is limited to 255 characters; 256 fails silently (reported to Light). Count it
+     before saving.
    - Images: up to 3, at least one. Raw LP3 screencaps work; look at each for personal data first.
    - "Submit build": the release commit's full SHA (`git rev-parse v<version>^{commit}`) and a one-line
      note linking the GitHub release.

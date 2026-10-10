@@ -244,3 +244,57 @@ for k in KEYCODE_KEYCODE_POWER KEYCODE_KEYCODE_24 KEYCODE_KEYCODE_0026; do
   expect_exit 64 "drive key $k refused" "$D" $S $PKG key $k
 done
 check "doubled KEYCODE_: no key sent" log_lacks "keyevent"
+
+# wake: KEYCODE_WAKEUP and wm dismiss-keyguard, then the --pre-launch guard must pass
+export LP3_WAKE_WAIT=1
+new_state; add_device $S TLP301 $S
+set_screen $S Asleep "$(focus_of com.lightos)" true
+touch "$FAKE_ADB_STATE/dev/$S/wake.wakes" "$FAKE_ADB_STATE/dev/$S/wake.unlocks"
+expect_exit 0 "drive wake: asleep and locked, no PIN" "$D" $S $PKG wake
+check "drive wake: WAKEUP sent with -s" log_has "^adb -s $S shell input keyevent KEYCODE_WAKEUP$"
+check "drive wake: dismiss-keyguard sent with -s" log_has "^adb -s $S shell wm dismiss-keyguard$"
+check "drive wake: every call uses -s" all_calls_addressed
+expect_exit 0 "guard --pre-launch passes after wake" "$G" --pre-launch $S $PKG
+
+new_state; add_device $S TLP301 $S
+set_screen $S Asleep "$(focus_of com.lightos)" true
+touch "$FAKE_ADB_STATE/dev/$S/wake.wakes"   # wakes, but a PIN keeps the keyguard up
+expect_exit 3 "drive wake: keyguard stays showing" "$D" $S $PKG wake
+check "drive wake: keyguard reason" err_has "keyguard"
+check "drive wake: tells the agent to ask the human" err_has "Ask the human"
+check "drive wake: doesn't tell the agent to run wake again" bash -c '! grep -q "run lp3-drive.sh" "$1"' _ "$WORK/err"
+check "drive wake: still tried dismiss-keyguard" log_has "wm dismiss-keyguard"
+
+new_state; add_device $S TLP301 $S
+set_screen $S Asleep "$(focus_of com.lightos)"
+expect_exit 3 "drive wake: stays asleep" "$D" $S $PKG wake
+check "drive wake: asleep reason" err_has "Asleep"
+
+new_state
+expect_exit 3 "drive wake: device not on adb" "$D" SER-GONE $PKG wake
+check "drive wake: no device tells the agent to ask the human" err_has "Ask the human"
+# No adb at all: a PATH holding only bash and the system directories (skipped if those have an adb).
+if [ ! -e /usr/bin/adb ] && [ ! -e /bin/adb ]; then
+  mkdir -p "$WORK/noadb"; ln -s "$(command -v bash)" "$WORK/noadb/bash"
+  PATH="$WORK/noadb:/usr/bin:/bin" expect_exit 3 "drive wake: no adb on PATH" "$D" $S $PKG wake
+  check "drive wake: no adb tells the agent to ask the human" err_has "Ask the human"
+fi
+
+new_state; add_device $S TLP301 $S
+set_screen $S Awake "$(focus_of com.lightos)"
+expect_exit 0 "drive wake: already awake and unlocked" "$D" $S $PKG wake
+check "drive wake: already awake sends no keyevent" log_lacks "keyevent"
+check "drive wake: already awake sends no dismiss-keyguard" log_lacks "dismiss-keyguard"
+
+new_state; add_device $S TLP301 $S
+set_screen $S Awake "$(focus_of $PKG)"
+for k in 224 KEYCODE_WAKEUP WAKEUP KEYCODE_0224 0224; do
+  expect_exit 3 "drive key $k still refused (wake is the only way)" "$D" $S $PKG key $k
+  check "drive key $k: refusal points to wake" err_has " wake$"
+done
+check "drive key WAKEUP: no keyevent sent" log_lacks "keyevent"
+expect_exit 64 "drive wake: extra argument" "$D" $S $PKG wake now
+LP3_WAKE_WAIT="x[\$(touch $WORK/canary)]" expect_exit 64 "drive wake: LP3_WAKE_WAIT with a command" "$D" $S $PKG wake
+check "LP3_WAKE_WAIT payload never ran" test ! -e "$WORK/canary"
+check "LP3_WAKE_WAIT payload: nothing reached adb" log_lacks "adb"
+unset LP3_WAKE_WAIT

@@ -34,12 +34,17 @@ Tools over Wi-Fi without a cable.
 
 ## Skills for your agent
 
-The rules below, and the scripts that enforce them, are packaged as a Claude Code plugin:
+The rules below, and the scripts that enforce them, are packaged as a Claude Code plugin. Install it
+first, inside Claude Code:
 
 ```
 /plugin marketplace add yarosz/lightphone-dev
 /plugin install lp3@lightphone-dev
 ```
+
+or from a shell: `claude plugin marketplace add yarosz/lightphone-dev`, then
+`claude plugin install lp3@lightphone-dev`. Your agent then runs the scripts from the installed plugin.
+Don't have it fetch and run them from GitHub URLs: Claude Code's auto mode blocks that as external code.
 
 - `lp3-device`: any adb step on an LP3 or LightOS emulator. Finds the device, guards every input, saves
   and restores settings, and takes turns on a shared phone.

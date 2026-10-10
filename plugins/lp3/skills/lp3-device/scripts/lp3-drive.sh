@@ -8,18 +8,22 @@
 #   lp3-drive.sh <serial> <pkg> text <string>
 #   lp3-drive.sh <serial> <pkg> shot <file.png>          # screenshot, no guard
 #   lp3-drive.sh <serial> <pkg> stop                     # force-stop <pkg> only, no guard
+#   lp3-drive.sh <serial> <pkg> wake                     # wake and unlock (no PIN) if asleep or locked
 #
 # launch checks the phone is awake and unlocked first, then waits up to LP3_FOCUS_WAIT seconds
 # (0-9999, default 10) for <pkg> to take focus. The other input verbs need <pkg> focused before they run.
+# wake does nothing if `lp3-guard.sh --pre-launch` already passes. Otherwise it sends KEYCODE_WAKEUP and
+# `wm dismiss-keyguard`, then waits up to LP3_WAKE_WAIT seconds (0-9999, default 5) for that guard to
+# pass. A PIN or pattern keeps the phone locked: exit 3, and ask the human.
 # key refuses POWER (26), ENDCALL (6), TV_POWER (177), SLEEP (223), WAKEUP (224) and SOFT_SLEEP (276)
 # in every spelling (number, with or without leading zeros, KEYCODE_ name or bare name): these can sleep
-# the LP3 (ENDCALL does when no call is up) and drop adb, and waking or unlocking is the human's job.
+# the LP3 (ENDCALL does when no call is up) and drop adb. Wake the phone with `wake` instead.
 #
-# Exit 3 = a guard failed or a key was refused (reason on stderr); stop and ask the human.
-# Exit 64 = usage.
+# Exit 3 = a guard failed, a key was refused, or wake couldn't unlock (reason on stderr); stop and ask
+# the human. Exit 64 = usage.
 set -euo pipefail
 
-usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; }
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 [ $# -ge 3 ] || { usage >&2; exit 64; }
 
@@ -74,7 +78,7 @@ case "$verb" in
     elif [[ $bare =~ $num ]]; then usage >&2; exit 64; fi
     case "${keycode#KEYCODE_}" in
       6|26|177|223|224|276|ENDCALL|POWER|TV_POWER|SLEEP|WAKEUP|SOFT_SLEEP)
-        echo "refused: $1 sleeps or wakes the phone. Ask the human to wake or unlock it." >&2; exit 3 ;;
+        echo "refused: $1 sleeps or wakes the phone. To wake or unlock it, run: $0 $serial $pkg wake" >&2; exit 3 ;;
     esac
     [[ $keycode =~ $num || $keycode =~ ^KEYCODE_[A-Z0-9_]+$ ]] || { usage >&2; exit 64; }
     guard; adb -s "$serial" shell input keyevent "$keycode" </dev/null
@@ -91,6 +95,30 @@ case "$verb" in
   stop)
     [ $# -eq 0 ] || { usage >&2; exit 64; }
     adb -s "$serial" shell am force-stop "$pkg" </dev/null
+    ;;
+  wake)
+    [ $# -eq 0 ] || { usage >&2; exit 64; }
+    wait_s="${LP3_WAKE_WAIT:-5}"
+    [[ $wait_s =~ ^[0-9]{1,4}$ ]] || { echo "LP3_WAKE_WAIT must be 0-9999 seconds" >&2; usage >&2; exit 64; }
+    guard --pre-launch 2>/dev/null && exit 0   # already awake and unlocked: send no keys
+    ask="Ask the human to wake or unlock the phone."
+    adb -s "$serial" shell input keyevent KEYCODE_WAKEUP </dev/null >/dev/null \
+      || { echo "wake: adb can't reach $serial. $ask" >&2; exit 3; }
+    adb -s "$serial" shell wm dismiss-keyguard </dev/null >/dev/null \
+      || { echo "wake: adb can't reach $serial. $ask" >&2; exit 3; }
+    deadline=$(( $(date +%s) + 10#$wait_s ))
+    until guard --pre-launch 2>/dev/null; do
+      if [ "$(date +%s)" -ge "$deadline" ]; then
+        reason=$(guard --pre-launch 2>&1 >/dev/null) || true
+        reason="${reason%%: run lp3-drive.sh*}"   # the guard's "run wake" hint; wake already ran
+        echo "wake: still not awake and unlocked after ${wait_s}s (a PIN or pattern, or another window has focus): ${reason:-unknown}" >&2
+        echo "wake: $ask" >&2
+        exit 3
+      fi
+      sleep 1
+      # The first dismiss can land before the screen is fully awake; repeating it is harmless.
+      adb -s "$serial" shell wm dismiss-keyguard </dev/null >/dev/null 2>&1 || true
+    done
     ;;
   *) usage >&2; exit 64 ;;
 esac

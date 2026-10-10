@@ -26,11 +26,12 @@
 # mDreamingLockscreen=false. The locked state wasn't captured, so the keyguard fields above are what
 # Android 14 prints, not yet confirmed on a locked LP3.
 #
-# Exit 0 = safe. Exit 3 = not safe, with the reason on stderr: stop and ask the human to wake or unlock
-# the phone or bring the Tool forward. Never wake or unlock it with key events. Exit 64 = usage.
+# Exit 0 = safe. Exit 3 = not safe, with the reason on stderr. Asleep or locked: run
+# `lp3-drive.sh <serial> <pkg> wake`, and ask the human only if that fails. Otherwise stop and ask the
+# human to bring the Tool forward. Exit 64 = usage.
 set -euo pipefail
 
-usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; }
 
 prelaunch=0
 case "${1:-}" in
@@ -50,7 +51,7 @@ power=$(dumpsys power) \
 # would then fail the pipeline and skip the check.
 wake=$(sed -n 's/.*mWakefulness=\([A-Za-z]*\).*/\1/p' <<<"$power" | sed -n 1p)
 [ -n "$wake" ] || unsafe "no mWakefulness in dumpsys power"
-[ "$wake" = Awake ] || unsafe "wakefulness is $wake, not Awake: ask the human to wake the phone"
+[ "$wake" = Awake ] || unsafe "wakefulness is $wake, not Awake: run lp3-drive.sh $serial $pkg wake, then ask the human if that fails"
 
 # On a real LP3 (Android 14) isKeyguardShowing and mDreamingLockscreen print under `dumpsys window
 # displays` (DISPLAY CONTENTS), and the KeyguardServiceDelegate lines under `dumpsys window policy`.
@@ -59,7 +60,7 @@ policy=$(dumpsys window policy) || unsafe "adb can't read dumpsys window policy"
 activities=$(dumpsys activity activities) || unsafe "adb can't read dumpsys activity activities"
 locked='(isKeyguardShowing|mKeyguardShowing|mShowingLockscreen|mDreamingLockscreen|keyguardShowing|mIsShowing|(^|[^A-Za-z])showing)[[:space:]]*=[[:space:]]*true'
 if grep -Eq "$locked" <<<"$displays" || grep -Eq "$locked" <<<"$policy" || grep -Eq "$locked" <<<"$activities"; then
-  unsafe "the keyguard is showing: ask the human to unlock the phone"
+  unsafe "the keyguard is showing: run lp3-drive.sh $serial $pkg wake, then ask the human if that fails"
 fi
 grep -Eq 'isKeyguardShowing[[:space:]]*=[[:space:]]*false' <<<"$displays" \
   || grep -Eq 'isKeyguardShowing[[:space:]]*=[[:space:]]*false' <<<"$policy" \
