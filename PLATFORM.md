@@ -240,6 +240,8 @@ Reader and Chess moved to it (light-reader #54, light-chess #36):
   - Settings > Account > Developer Account > Manage Custom Tools > Add Tool asks for a title, the GitHub
     repo, a description and one tag. The package name comes from `lighttool.toml` on the default branch
     and can't change later.
+  - The description field takes at most 255 characters. A 256-character description fails silently
+    (reported to Light, 2026-10).
   - The Tool's page takes up to 3 images (JPEG, PNG or WebP, 5 MB each; at least one is needed for
     approval, and raw 1080×1240 LP3 screencaps work) and build-time environment variables. A Tool can
     only use those by building them into its APK, so treat them as public.
@@ -432,11 +434,16 @@ Reader and Chess moved to it (light-reader #54, light-chess #36):
   script once sent volume keys to the LightOS home screen and may have left the LP3 ringer at 0/7.
 - Say whether the LP3 is attached (`adb devices`) before any step that needs it, and check its serial
   rather than assume which phone it is: an agent once assumed the wrong phone was attached.
-- `wm dismiss-keyguard` still unlocks a phone with no PIN, but we stopped relying on it to wake and
-  unlock the LP3 for CI: auto mode blocks waking over adb, and a dozing phone failed CI three times.
-  Before every input, check that the phone is awake (`dumpsys power` mWakefulness is Awake) and
-  unlocked, as well as the focus, and stop and ask the human to wake it rather than tap blind (the lp3
-  plugin's [lp3-guard.sh](plugins/lp3/skills/lp3-device/scripts/lp3-guard.sh)).
+- Before every input, check that the phone is awake (`dumpsys power` mWakefulness is Awake) and
+  unlocked, as well as the focus, rather than tap blind (the lp3 plugin's
+  [lp3-guard.sh](plugins/lp3/skills/lp3-device/scripts/lp3-guard.sh)); a dozing phone failed CI three
+  times. If it is asleep or locked and the phone's owner allows agents to wake it, run
+  [`lp3-drive.sh <serial> <pkg> wake`](plugins/lp3/skills/lp3-device/scripts/lp3-drive.sh): it sends
+  `KEYCODE_WAKEUP` and `wm dismiss-keyguard` (which unlocks a phone with no PIN), then waits for the
+  guard. If it exits 3 (a PIN keeps the phone locked) or an agent harness blocks it (Claude Code's auto
+  mode has blocked waking over adb), ask the human. Tested on an LP3 with no PIN, dozing, over wireless adb: awake on the LightOS home screen in
+  about a second. Wireless adb answered while the screen was off; after a long sleep it may not, and then
+  `wake` exits 3. Never press POWER, SLEEP or ENDCALL: they sleep the LP3 and drop adb.
 - In a shell loop over devices (`adb devices | while read ...`), give every `adb shell` inside it
   `</dev/null`: `adb shell` reads the loop's stdin and swallows the rest of the device list
   (light-reader #54).

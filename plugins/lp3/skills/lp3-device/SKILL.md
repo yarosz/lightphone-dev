@@ -24,9 +24,9 @@ refuse compound commands, and a script runs the same checks every time.
 3. **Save every setting you will change**, to a file named for your package and holder, so two sessions
    on one package don't collide:
    `scripts/lp3-settings.sh <serial> save "$HOME/.cache/lp3-settings-<pkg>-<holder>" global:stay_on_while_plugged_in ...`.
-4. **Drive input through the guard.** `scripts/lp3-drive.sh <serial> <pkg> launch|tap|swipe|key|text|shot|stop`.
-   It checks before every input that the device is awake, unlocked and showing `<pkg>`. Exit 3 means
-   stop and ask the human for the one action the guard names.
+4. **Drive input through the guard.** `scripts/lp3-drive.sh <serial> <pkg> launch|tap|swipe|key|text|shot|stop|wake`.
+   It checks before every input that the device is awake, unlocked and showing `<pkg>`. If it is asleep
+   or locked, run `wake` (rules below); for any other exit 3, ask the human for the action it names.
    Only input (tap, swipe, key, text, launch) goes through the guard. `adb install -r`, `uninstall`,
    `settings put`, `logcat` and `screencap` are plain `adb -s <serial> ...` calls once you hold the lease
    (if sharing) and step 1 found the device. A dozing phone may drop off adb, so run
@@ -61,12 +61,13 @@ you send another way. Volume keys once landed on the LightOS home screen and may
 a dozing phone failed CI three times; the guard pattern ran 184 focus checks with 0 misfires in one
 project.
 
-**Leave waking and unlocking to the human.** When the guard fails, stop and ask the human to wake or
-unlock the phone. Never press POWER (it sleeps the LP3 and drops adb) and never wake or unlock with key
-events; `lp3-drive.sh key` refuses POWER, SLEEP, WAKEUP and SOFT_SLEEP in any spelling. Some agent
-harnesses (Claude Code's auto mode, for one) block waking or unlocking over adb, and a person may be
-using the phone, so ask the human. `wm dismiss-keyguard` still unlocks a phone with no PIN, but don't
-build CI on it.
+**Wake with `wake` if the owner allows it, then ask.** Waking and unlocking a phone is its owner's call:
+a person may be using it. If they have allowed it and the guard says asleep or locked, run
+`scripts/lp3-drive.sh <serial> <pkg> wake`: it sends WAKEUP and `wm dismiss-keyguard` only when needed,
+then waits for the guard. If it exits 3 (a PIN or pattern keeps the phone locked, another window has
+focus, or adb is gone), ask the human and don't run it again. Some harnesses (Claude Code's auto mode,
+for one) may block waking over adb; then ask the human rather than work around it. Never press POWER, SLEEP or ENDCALL: they sleep
+the LP3 and drop adb. `lp3-drive.sh key` refuses them, and WAKEUP, in any spelling.
 
 **Read the lease, then ask.** A quiet logcat or an old install time doesn't mean the phone is free: a
 person may be reading on it.
@@ -97,12 +98,12 @@ of the device list.
 before sharing it. One screenshot showed the owner's phone number; a watcher printed a saved location.
 
 **Check the device yourself before asking the human.** Read it first (`dumpsys`, `pm list packages`,
-`getprop`, a screenshot). Ask only for what a guard or the hardware blocks (wake, unlock, replug, reboot),
-and name the exact action. Across three projects, the human had to correct agents nine times for asking
-about things they could have read themselves.
+`getprop`, a screenshot). Ask only for what the scripts or the hardware can't do (an unlock after
+`wake` failed, a replug, a reboot), and name the exact action. Across three projects, the human had to
+correct agents nine times for asking about things they could have read themselves.
 
 **For sleep or Doze tests, unplug and poll over wireless adb.** USB power and adb polling keep the phone
-awake.
+awake. Let it sleep on its own timeout; never press POWER to force it.
 
 ## Scripts
 
@@ -110,7 +111,7 @@ awake.
 |---|---|
 | `lp3-find.sh [--phone \| --avd <name>] [--wait <s>]` | Prints exactly one serial, or exits 1 (none) or 2 (several). |
 | `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused; exit 3 with the reason. `--pre-launch` still refuses a locked phone. |
-| `lp3-drive.sh <serial> <pkg> <verb> ...` | Guarded `launch`, `tap`, `swipe`, `key`, `text`; unguarded `shot`, `stop`. |
+| `lp3-drive.sh <serial> <pkg> <verb> ...` | Guarded `launch`, `tap`, `swipe`, `key`, `text`; unguarded `shot`, `stop`; `wake` wakes and unlocks (no PIN), exit 3 if it can't. |
 | `lp3-settings.sh <serial> save <file> <ns>:<key>... \| restore <file>` | Saves originals to a file; restores, deleting nulls. |
 | `lp3-lease.sh take\|renew\|release\|show` | Turn-taking between sessions ([references/sharing.md](references/sharing.md)). |
 

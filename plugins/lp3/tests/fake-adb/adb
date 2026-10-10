@@ -13,6 +13,8 @@
 #   dev/<serial>/window.lastanr  optional; the full `dumpsys window` prints lastanr, policy, displays
 #   dev/<serial>/window.displays.launched  replaces window.displays when `am start` runs
 #   dev/<serial>/settings/<ns>.<key>   a setting's value; no file = null
+#   dev/<serial>/wake.wakes      if present, `input keyevent KEYCODE_WAKEUP` sets mWakefulness=Awake
+#   dev/<serial>/wake.unlocks    if present, `wm dismiss-keyguard` clears the keyguard fields
 #   log                          every call, one per line
 set -uo pipefail
 state="${FAKE_ADB_STATE:?FAKE_ADB_STATE not set}"
@@ -91,7 +93,16 @@ case "$1 ${2:-}" in
       *) echo "fake adb: unknown: $*" >&2; exit 97 ;;
     esac ;;
   "dumpsys activity") [ "${3:-}" = activities ] || { echo "fake adb: unknown: $*" >&2; exit 97; }; cat "$dev/activity" ;;
+  "input keyevent")
+    if [ "${3:-}" = KEYCODE_WAKEUP ] && [ -f "$dev/wake.wakes" ]; then
+      sed -i.bak 's/mWakefulness=[A-Za-z]*/mWakefulness=Awake/' "$dev/power"
+    fi ;;
   "input "*) ;;
+  "wm dismiss-keyguard")
+    if [ -f "$dev/wake.unlocks" ]; then
+      sed -i.bak 's/isKeyguardShowing=true/isKeyguardShowing=false/' "$dev/window.displays"
+      sed -i.bak 's/mKeyguardShowing=true/mKeyguardShowing=false/' "$dev/activity"
+    fi ;;
   "am start") [ -f "$dev/window.displays.launched" ] && cp "$dev/window.displays.launched" "$dev/window.displays"; echo "Status: ok" ;;
   "am force-stop") ;;
   "settings get") cat "$dev/settings/$3.$4" 2>/dev/null || echo null ;;
