@@ -55,4 +55,7 @@ Installing over the cable got old. LightOS's File Manager, in its debug menu, ca
 Wi-Fi into a "Tool Inbox", but uploads failed. Reading the File Manager showed
 why: the inbox folder doesn't exist until you add one of Light's own Tools once. The tool became its
 own repo, [lightphone-wifi-install](https://github.com/yarosz/lightphone-wifi-install), and the setup
-steps are in [PLATFORM.md](../../PLATFORM.md).
+steps are in [PLATFORM.md](../../PLATFORM.md). It later gained a 17 KB Uninstall app, because LightOS
+582 has no way to remove a sideloaded app. That app is built with the Android SDK's command-line tools
+(javac, d8, aapt2, zipalign, apksigner) and no Gradle, which makes it a useful template for a minimal
+non-Tool app on the LP3.

@@ -110,3 +110,48 @@ squashed commit, so no private history came along.
 Reader's ledger said that removing the on-screen page counter meant updating `ci.sh`, which reads it, in
 the same PR. The PR removed the counter and not the check, and the PR's own CI run failed. A note in a ledger is
 weaker than a test. If a script depends on something on screen, a test should fail when it's gone.
+
+The same kind of break happened again, and this time nothing caught it. When Reader's reading controls
+started hidden (N5), `perf.sh` could no longer find its A+ and A− buttons, and it stayed broken until the
+next milestone needed it. Any script that drives the UI now gets a run at every milestone, whether or not
+anyone needs its numbers that week.
+
+## A failing signoff that came late
+
+Chess's first PR showed a failing `signoff/emulator` status after the passing one, and the merge went
+ahead on the pass. Nobody looked into it until we asked, ten days later. The cause was a chained
+background command, `mise run emu > log; mise run ci > ci.log`. `mise run emu` stays attached until the
+emulator exits, so CI never started. The orchestrator ran CI separately, which passed and posted success.
+When it then shut the emulator down, the chained CI finally ran against no emulator and posted a
+failure, overwriting `ci.log`.
+
+The merge was right, but for a reason nobody had checked. Rules from it: never chain anything after a
+command that keeps the emulator attached, kill stale background chains before shutting an emulator down,
+and when a status changes after a merge decision, find out why before moving on.
+
+## A number that was too consistent
+
+Every scripted open in Reader took about 0.95 s, whatever the Book. That is the shape of something
+fixed in the way, and it was: the SDK holds its splash for the first second and suppresses drawing, so
+the scripts were timing the splash. A Perfetto trace found it. The old tables were dropped, and opens
+were measured again from a tap after launch. Distrust a flat number.
+
+## Asking the human what an agent could check
+
+A Doom session asked the maintainer to check things on the phone (the debug menu, a dashboard listing)
+that it could have read itself. It also stated two things with confidence that were wrong: that the
+phone had the dashboard's add and remove buttons, and that the dashboard showed a stale tab. Rules from
+it: before asking the human to try or check something on the phone, check it yourself on the emulator or
+phone, read-only first. When the phone and the dashboard disagree, check both directly before
+explaining either.
+
+## Sharing the phone, again
+
+One session's install test removed another session's Tool from the shared LP3. Nothing in the lease
+protocol said to check afterwards. Now: after another session's turn on the phone, check that your own
+Tool is still installed.
+
+## Posting before releasing
+
+A public discussion update went up with no GitHub release behind it, so readers couldn't find the build
+it described. Reader now cuts a release at the end of every milestone and before any discussion update.

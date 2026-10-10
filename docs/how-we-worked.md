@@ -41,7 +41,8 @@ The roles that recurred:
 "Interrogate" is a Claude Code review skill we used. Without it, spawn three read-only subagents on
 different models, give each the diff and the spec, and tell each to find what's wrong. The maintainer
 dropped Fable from Reader's trio for cost on 2026-09-28, and the trio kept finding real issues with Haiku
-in its place.
+in its place. Later Reader PRs also mutation-checked their tests once per rule: break the rule in the
+code and confirm a test fails.
 
 Builders did not commit. Commits are signed through 1Password with Touch ID, so only the orchestrator,
 with the maintainer at the keyboard, could make them. That turned out to be a useful checkpoint: nothing
@@ -120,9 +121,15 @@ The maintainer kept a short list, and the agents kept to it:
 
 Everything else, agents did without asking once the gates were green: design rulings through domain
 experts, implementation, reviews, merges, and edits to [PLATFORM.md](../PLATFORM.md). Partway through
-Chess, the maintainer gave standing merge authority: merge once other agents have verified and approved.
-Late in Reader, they handed one evening's product questions to a "decider" agent briefed to rule as
-they would.
+Chess, the maintainer gave standing merge authority: merge once the orchestrator has verified a PR and
+fresh code and product reviewer agents approve. Chess's next 35 merged PRs (#2 to #37) went in that
+way. Late in Reader, the maintainer handed one evening's product questions to a "decider" agent briefed
+to rule as they would.
+
+Submitting to Light's Tool Library stayed with the maintainer. When they asked an agent to do it, the
+agent drove the dashboard and stopped for one approval before each outward step: the description, the
+images, then the build. Chess 0.5.0 went in that way on 2026-10-09, and Reader 0.3.2 was submitted the
+same day.
 
 ## Cost and limits
 

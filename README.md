@@ -6,9 +6,9 @@ held the phone, pressed Touch ID and made the calls that can't be undone.
 
 | Tool | What it is | State |
 |---|---|---|
-| [light-reader](https://github.com/yarosz/light-reader) | DRM-free EPUB reader: Gutenberg, Standard Ebooks, OPDS catalogues, offline | In development, not yet submitted to Light |
+| [light-reader](https://github.com/yarosz/light-reader) | DRM-free EPUB reader: Gutenberg, Standard Ebooks, OPDS catalogues, offline | 0.3.2 submitted to Light's Tool Library (2026-10-09), awaiting approval |
 | [light-doom](https://github.com/yarosz/light-doom) | Doom at 35 fps in pure Kotlin through a WebAssembly interpreter | Released as a dev-signed proof of concept |
-| [light-chess](https://github.com/yarosz/light-chess) | Puzzles, an offline engine, and phone-to-phone games | v1 merged, v2 and v3 in progress |
+| [light-chess](https://github.com/yarosz/light-chess) | Puzzles, an offline engine, and phone-to-phone games | 0.5.0 submitted to Light's Tool Library (2026-10-09), awaiting approval |
 
 A side project, [lightphone-wifi-install](https://github.com/yarosz/lightphone-wifi-install), installs
 Tools over Wi-Fi without a cable.
@@ -55,9 +55,12 @@ The order that worked for the third Tool:
 
 1. Read [PLATFORM.md](PLATFORM.md), then Light's SDK README. Get adb on the phone ("Getting adb on the
    phone").
-2. Add [light-sdk](https://github.com/lightphone/light-sdk) as a submodule at a tagged version. Commit
+2. Add [light-sdk](https://github.com/lightphone/light-sdk) as a submodule at the latest tag (Light asks
+   for it when you submit), and match its root `targetSdk` (34 on v0.2.0). Commit
    `serverPackage = "com.lightos"` in `lighttool.toml`, and copy light-reader's `scripts/emulator-build.sh`
    (swaps it for emulator builds), `scripts/light-build.sh` (rehearses Light's builder) and `scripts/ci.sh`.
+   If you don't use the SDK's QR scanner, add the dependency excludes from PLATFORM.md: they cut about
+   22 MB from the APK.
 3. Build your own emulator AVD from light-chess `scripts/emulator/RECIPE.md`, on the next free even port.
 4. Start `LEDGER.md` from [templates/ledger-handoff.md](templates/ledger-handoff.md), with a done-when on
    every item. Keep a private ledger outside the repo for anything personal.
@@ -69,6 +72,8 @@ The order that worked for the third Tool:
 8. Before going public, run [scripts/prepublish-scan.sh](scripts/prepublish-scan.sh) with a private
    patterns file.
 9. Add a weekly job that runs the builder rehearsal against Light's newest SDK.
+10. Cut a GitHub release at the end of each milestone, before any public post about it. Submit to the
+    Tool Library with the release commit's full SHA ("Shipping through Light" in PLATFORM.md).
 
 ## How this was written
 

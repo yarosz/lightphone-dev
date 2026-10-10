@@ -8,8 +8,10 @@ unless an entry says otherwise. Paths like `light-reader/scripts/ci.sh` are in o
 [light-chess](https://github.com/yarosz/light-chess)); `light-sdk/...` paths are in Light's SDK.
 
 Start with Light's own SDK README and `docs/`; this file covers what they don't. Sections: hardware and
-display, games, rendering and frame rate, build plugin rules, shipping through Light, SDK lifecycle,
-getting adb on the phone, emulator, driving devices from scripts, measuring performance, local CI.
+display, games, rendering and frame rate, build plugin rules, SDK v0.2.0, shipping through Light (the
+Tool Library, Wi-Fi install, uninstalling), SDK lifecycle, getting adb on the phone, emulator, driving
+devices from scripts, measuring performance, local CI. Facts before 2026-10-08 were checked on SDK
+v0.1.2; later ones on v0.2.0.
 
 Some commands below use [mise](https://mise.jdx.dev), which pins the JDK and Android tools per repo;
 `mise run <task>` runs a repo's tasks.
@@ -154,12 +156,27 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
 - Android resources under `src/main/res/` (fonts, for example) are accepted.
 - R8 with resource shrinking keeps `res/font` working (the paths shorten to `res/<xx>.ttf`).
 - The plugin bans `srcDir`, so a debug-only source set shared with another build type is impossible.
-  Add a separate build type instead (light-chess has a `benchmark` type on its v2 branch).
+  Add a separate build type instead (light-chess has a `benchmark` build type).
 - Whatever `lighttool.toml` declares, the SDK merges INTERNET, CAMERA and six more permissions into every
   Tool APK and bundles ML Kit's `libbarhopper_v3.so`, about 20 MB of a 28 MB release APK (a debug APK was
   about 85 MB). Checked by Chess on SDK v0.1.2.
+- That weight comes from `sdk:ui`, which declares ML Kit barcode, CameraX, Play services and Firebase for
+  its QR scanner (`LightQrCodeScanner`) alone. A Tool that never calls the scanner can drop them all in
+  `tool/build.gradle.kts`:
+  ```kotlin
+  configurations.configureEach {
+      exclude(group = "com.google.mlkit")
+      exclude(group = "com.google.android.gms")
+      exclude(group = "com.google.firebase")
+      exclude(group = "com.google.android.datatransport")
+      exclude(group = "com.google.android.odml")
+      exclude(group = "androidx.camera")
+  }
+  ```
+  Reader's release APK went from 27.1 to 5.2 MB (light-reader #46) and Chess's from 29.4 to 7.4 MB
+  (light-chess #30). Calling the scanner after this would crash. Still needed on SDK v0.2.0.
 - The generated manifest leaves `allowBackup=true`. Keep anything secret out of backed-up storage (light-chess
-  v3 keeps the credentials for its move-relay server under `no_backup`).
+  keeps the credentials for its move-relay server under `no_backup`).
 - XML on the device: Android's Expat parser silently drops undeclared entities (`&nbsp;` in XHTML with no
   DTD) where the JVM's parser in unit tests reports them. Rewrite named entities to numeric references
   before parsing. Treat every EPUB and feed as hostile: Reader sends all XML through one parser in which
@@ -183,15 +200,53 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
   its resource-loading book reader replaced. Both get perft exact. Neither has been built inside the plugin
   or run on the phone yet.
 
+## SDK v0.2.0 (tagged 2026-10-08)
+
+Light's Tool Library submission steps ask for the latest SDK
+([light-sdk discussion #266](https://github.com/orgs/lightphone/discussions/266)). What changed when
+Reader and Chess moved to it (light-reader #54, light-chess #36):
+
+- The SDK's root `targetSdk` dropped from 36 to 34. Light's builder compiles your `tool/build.gradle.kts`
+  inside the SDK project, so match it (34), or your local CI tests a different APK from the one Light
+  signs. An upgrade from a target-36 build to a target-34 one still installs over it, and data survives.
+- `LightJobResult.Success` takes two arguments (`outputFilePath`, `message`).
+- The plugin sets the `sdkVersion` manifest placeholder itself; remove your own.
+- Dependencies are checked against `allowed-dependencies.txt`.
+- The SDK's exported file provider (`lightfiles`) is opt-in: only Tools that declare the
+  `tool-manager-provider` capability get it. That capability plus an upload spec make a Tool an upload
+  target in the Tool Manager.
+- New capability `cleartext-http`, for Tools that talk to a local-network server
+  ([light-sdk #223](https://github.com/lightphone/light-sdk/pull/223)).
+- The keyboard's dictation key is off by default.
+- New runtime libraries come with it: the Tool Manager client 0.0.13 and kotlincrypto's HMAC.
+
 ## Shipping through Light
 
 - `serverPackage` must be `com.lightos` in the committed `lighttool.toml`: Light's builder builds
   releases from a committed hash. The emulator needs `com.thelightphone.sdk.emulator`, so swap it at
-  build time and restore it afterwards (light-reader `scripts/emulator-build.sh`). light-sdk #231 /
-  PR #234 proposes a plugin guard for this.
-- Rehearse Light's builder locally before a release: an unsigned, minified release build
-  (`./gradlew :tool:assembleRelease -DlightSdk.unsigned=true`), then `scripts/light-build.sh`, which
-  clones the committed HEAD. Uncommitted work is invisible to it.
+  build time and restore it afterwards (light-reader `scripts/emulator-build.sh`).
+  [light-sdk #234](https://github.com/lightphone/light-sdk/pull/234), merged on 2026-10-08 after the
+  v0.2.0 tag, makes the build fail on any other `serverPackage` unless
+  `-DlightSdk.allowAltServerPackage=true` is passed. Once it's in a tagged SDK, emulator builds need
+  that flag, and Light's builds never get it.
+- Rehearse Light's builder locally before a release: an unsigned, minified release build with Light's
+  flags (`-DlightSdk.unsigned=true -DlightSdk.abiFilters=arm64-v8a -DlightSdk.toolOnly=true` on
+  v0.2.0), then `scripts/light-build.sh`, which clones the committed HEAD. Uncommitted work is invisible
+  to it. light-chess's version also fails if any native library isn't arm64.
+- Submitting to the Tool Library (Reader and Chess, 2026-10-09, in Light's dashboard):
+  - Settings > Account > Developer Account > Manage Custom Tools > Add Tool asks for a title, the GitHub
+    repo, a description and one tag. The package name comes from `lighttool.toml` on the default branch
+    and can't change later.
+  - The Tool's page takes up to 3 images (JPEG, PNG or WebP, 5 MB each; at least one is needed for
+    approval, and raw 1080×1240 LP3 screencaps work) and build-time environment variables. A Tool can
+    only use those by building them into its APK, so treat them as public.
+  - "Submit build" takes a git ref and a note. Use the full SHA of the release commit: unlike a branch
+    or tag, it can't move. `versionCode` must be above the newest Version's, and only one build can be
+    active.
+  - Light's builds took 6-8 minutes (Reader 6 min 18 s, Chess about 7.5 min). A Version reads "pending
+    approval" as soon as its build succeeds: that is the queue for Light's review, not a review result.
+  - Light's signed build has its own certificate per Tool, so it can't install over a dev-signed one:
+    switching means uninstalling, which deletes the Tool's data (see the version rules below).
 - Light's CONTRIBUTING AI policy: every issue, PR description, comment and reply in lightphone repos
   comes from a person, not an AI. PRs from a fork need a maintainer to approve their workflow runs.
 - Two distribution tiers. Light-signed: Light builds the committed source with its unmodified plugin,
@@ -209,7 +264,7 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
   to the SDK server's `ClientFilterLevel`. Sensitive runtime permissions (RECORD_AUDIO,
   SYSTEM_ALERT_WINDOW) stay ungranted.
 - Wi-Fi install through the File Manager's Tool Inbox works on LightOS 582 (light-doom, tested on the
-  LP3, 2026-09-27). It is an install route only.
+  LP3, 2026-09-27). It is an install route only; to remove what you installed, see "Uninstalling" below.
   - Setup, the minimum (tested 2026-09-28):
     1. Dial `*7412369#` in the Phone tool and press call. That reveals
        Settings > Debug, where the File Manager lives. Debug
@@ -241,6 +296,23 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
     the File Manager URL or from the phone's QR code read by the laptop camera.
   - There's no route into a Tool's own storage, so the inbox can't deliver a Tool's data files (your
     own EPUBs, say).
+- The Tool Manager, Light's newer route for getting files to a Tool, is on the SDK v0.2.0 emulator's
+  LightOS, with discovery of third-party upload targets; an end-to-end upload worked there (light-reader
+  #56). Retail LightOS 582 on the LP3 doesn't have it yet, only the File Manager above (checked
+  2026-10-09).
+- Uninstalling (LightOS 582, checked on the LP3 and in the dashboard, 2026-10-09):
+  - LightOS has no way to remove a sideloaded app. The phone's Edit Toolbox only reorders, and the
+    dashboard's Tools editor lists only Light's downloadable Tools, never sideloaded ones.
+  - Android's own uninstall dialog still works: `adb shell am start -a android.intent.action.DELETE -d
+    package:<pkg>`, then confirm on the unlocked phone; or plain `adb uninstall <pkg>`. An app holding `REQUEST_DELETE_PACKAGES` can open
+    the same dialog without adb; lightphone-wifi-install has a small one, `unsideloader/`, built with the
+    Android SDK's command-line tools and no Gradle.
+  - Remove Light's own Tools (Weather, Authenticator, Rideshare were tested) from the dashboard, not with
+    Android's dialog. The dialog takes the app off the phone, but the account still lists it as
+    installed. The dashboard's delete removes it from the phone, and re-adding a Tool there puts it back
+    on the phone in 6-12 s.
+  - Calculator and Music have no packages of their own (`pm list packages`): they ship inside LightOS's
+    own packages, so there is nothing separate to remove.
 
 ## SDK lifecycle
 
@@ -267,7 +339,10 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
     button rather than on back.
 - `LightActivity` keeps its splash up for at least 1 s after `onCreate` (`setKeepOnScreenCondition`), so a
   cold start can't show content sooner: Chess measured about 1.03 s to its first Puzzle (debug build). Set startup
-  targets from there.
+  targets from there. The splash also suppresses drawing, so a timing script that opens content at
+  launch measures about 0.95 s whatever it opens. Reader's open times read as ~0.95 s for every Book
+  until a Perfetto trace showed the splash (light-reader #49); a real tap on a Book to the drawn Page
+  took 30-90 ms plus the parse (emulator, release build). Time from a tap after launch, not from launch.
 - Networking: `LightConnectivity` can't report whether a network is VALIDATED, and asking Android
   directly needs a `Context`, so a Tool can't tell a slow server from a captive portal or no route. Reader
   treats a timeout as "can't reach" with Retry.
@@ -301,6 +376,12 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
   builds need.
 - The LP3 drops off USB when its screen is off or its battery is low, so keep it charged and awake while
   scripting (see "Driving devices from scripts").
+- Wireless adb works (2026-10-08): on Android's Wireless debugging screen, "Pair device with pairing
+  code" sits below the toggle. adb then reaches the phone by a stable mDNS name
+  (`adb-<serial>-<suffix>._adb-tls-connect._tcp`) even though the port changes. Wireless debugging turns
+  off when the phone leaves the Wi-Fi network; switch it back on, with no new pairing. Scripts should pick
+  the phone by model (`getprop ro.product.model` is `TLP301`), not with `adb -d`, which stops finding it
+  once it's wireless (light-reader `scripts/ci.sh`).
 
 ## Emulator
 
@@ -315,6 +396,11 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
 - Boot with `-writable-system -no-snapshot -dns-server 1.1.1.1,8.8.8.8`: the emulator's own DNS
   (10.0.2.3) has silently stopped resolving before.
 - Steps to build the AVD: light-chess `scripts/emulator/RECIPE.md`.
+- The SDK v0.2.0 emulator's LightOS has an Allowed tools setting with four levels: "Default Only",
+  "Community Tools" (approved ones), "Built with SDK" and "All Tools". It defaults to "Community Tools",
+  which hides a dev-signed Tool and refuses its service token (logcat: "Rejected GetToken from
+  unverified caller"). Set it to "All Tools"; Reader's dev-signed build was also listed at "Built with
+  SDK" on the emulator (2026-10-09).
 - One emulator per Tool, never shared by two sessions at once. Give each its own AVD name and even port
   (`-port 5556`, 5558, ...). Rules for running several:
   - Address every adb call with `-s emulator-<port>`, and never `adb kill-server`. Select your emulator
@@ -342,7 +428,18 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
   script once sent volume keys to the LightOS home screen and may have left the LP3 ringer at 0/7.
 - Say whether the LP3 is attached (`adb devices`) before any step that needs it, and check its serial
   rather than assume which phone it is: an agent once assumed the wrong phone was attached.
-- `wm dismiss-keyguard` unlocks a phone with no PIN, so a CI script can wake and unlock the LP3.
+- `wm dismiss-keyguard` unlocks a phone with no PIN, so a CI script can wake and unlock the LP3. A UI
+  test should check that the phone is unlocked, as well as the focus, before every input, and stop
+  rather than tap blind.
+- In a shell loop over devices (`adb devices | while read ...`), give every `adb shell` inside it
+  `</dev/null`: `adb shell` reads the loop's stdin and swallows the rest of the device list
+  (light-reader #54).
+- Never chain anything after `mise run emu` (or any command that keeps the emulator attached): it blocks
+  until the emulator exits. A chained `mise run emu; mise run ci` sat waiting until the emulator was shut
+  down, then ran CI against no emulator and posted a failing signoff after the real, passing one.
+- After another session's turn on the shared phone, check that your own Tool is still installed. One
+  session's install test removed another Tool from the LP3.
+- Keep personal data (locations, account details) out of logs and helper output.
 - To reach a server on your Mac from the phone, use `adb reverse`. A debug build may use cleartext to
   `127.0.0.1` (and `10.0.2.2` from the emulator); release builds can't.
 - `run-as` doesn't work on non-debuggable builds, and a Tool can't read files that adb writes to
@@ -372,7 +469,16 @@ Source of truth: `light-sdk/plugin/src/main/kotlin/com/thelightphone/plugin/` (`
 
 - Measure on the LP3, not the emulator, and on a non-debuggable build (3.6× faster for Chess's
   engine). Log timings under a dedicated logcat tag and report P90s;
-  light-reader `scripts/perf.sh` is the template (`mise run perf`).
+  light-reader `scripts/perf.sh` is the template (`mise run perf`). `perf.sh -r` installs the release
+  APK over the debug one (same key and `versionCode`, so data stays), compiles it to its baseline
+  profile, and measures page turns, time to the drawn Page, repacks and memory.
+- Distrust a flat number. If every case measures the same, look for something fixed in the way, like the
+  1 s splash above, and drop the old tables once it's fixed.
+- Lazy parsing (light-reader ADR 0009, LP3 release build, n=10, P90, open to drawn Page): parse only
+  what the first Page needs (the package, the tables of contents and the Spine item the reading position
+  is in), and the rest of the Book in one background pass. War and Peace went from 692 to 114 ms, the
+  King James Bible from 730 to 113 ms, Alice from 151 to 111 ms. The whole Book is in about 0.7 s after
+  the open starts.
 - Reader's reference numbers: Compose text layout costs about 10 ms per 1,000 characters on the LP3 with
   Reader's real styles (light-reader ADR 0007; an unstyled prototype measured 3-4 ms).
   Opening a 165K-character chapter went from 1,940 ms to 111 ms (P90) once only ~10K-character windows
