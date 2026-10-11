@@ -11,8 +11,8 @@ Facts below were read on an LP3 (LightOS 582, firmware 1.440000, 2026-10-11, rea
   developer building a passkey Tool reported that fingerprints can't be enrolled because the LP3 has no enforced lock
   screen, and asked whether the lock screen will become a real Android credential.
 - Light's reply (dupontgu, 2026-08-25): no short-term answer. Light has made progress with the sensor in recent
-  months. Integrating with Android's lock screen needs help from its manufacturing partner, because it means changing
-  Android (AOSP) screens that the partner controls. Light expects to offer "some level of fingerprint functionality
+  months. Integrating with Android's lock screen needs help from its manufacturing partner: Light has been asking it
+  for changes to Android (AOSP) screens, and the partner has had more pressing work. Light expects to offer "some level of fingerprint functionality
   relatively soon", but independent of Android's lock screen.
 
 ## The stack on the LP3
