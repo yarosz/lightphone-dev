@@ -59,7 +59,8 @@ Some commands below use [mise](https://mise.jdx.dev), which pins the JDK and And
   height (checked by hand). Held sideways with the top to the left, the shutter is under the right index
   finger like a camera shutter and the volume keys under the left one.
 - The fingerprint sensor is not an input device: a light touch emits no input event (`getevent`), and
-  only the biometric stack sees it. A Tool can't use it as a button.
+  only the biometric stack sees it. A Tool can't use it as a button. More on the fingerprint stack, and what
+  Light has said about it: [docs/fingerprint.md](docs/fingerprint.md).
 - LightOS applies Android's system grayscale filter (secure `accessibility_display_daltonizer_enabled`
   1, `accessibility_display_daltonizer` 0 = monochromacy). The panel shows color when it is off. A Tool
   can't change it; screenshots (`screencap`) are taken before the filter and show color. LightOS
