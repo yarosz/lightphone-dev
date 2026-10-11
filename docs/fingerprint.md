@@ -66,6 +66,11 @@ A temporary PIN was set over adb (`locksettings set-pin`), a fingerprint enrolle
   - Fingerprint: a touch on the sensor at the keyguard unlocks. A press of the power button with the finger on
     the sensor wakes and unlocks in one step, skipping the keyguard.
   - PIN: tapping the keyguard's lock icon opens the PIN pad (bouncer); the PIN unlocks.
+- The keyguard's look can't be changed without system access, but an app can draw its own screen on top of it
+  (`Activity.setShowWhenLocked` with `KeyguardManager.requestDismissKeyguard`), and the fingerprint still unlocks
+  through it. The community launcher [Luma](https://github.com/vandamd/Luma) uses this to give a Light-styled
+  fingerprint lock screen. The stock keyguard and PIN pad still appear after a restart or when the PIN is asked for.
+  Not tested in this survey.
 - Not tested: the restart case. On an emulator, Android required the PIN after a restart before it accepted a
   fingerprint, as stock Android does.
 
