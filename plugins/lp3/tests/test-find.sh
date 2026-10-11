@@ -31,6 +31,18 @@ add_device "adb-SER-ONE-AbCdEf._adb-tls-connect._tcp" TLP301 SER-ONE
 expect_exit 0 "wireless only" "$F" --phone
 check "wireless only: prints the mDNS serial" out_has "_adb-tls-connect._tcp$"
 
+# adb renames an mDNS service after a quick wireless-debugging restart: "<name> (2)" has a space in it.
+new_state
+add_device "adb-SER-ONE-AbCdEf (2)._adb-tls-connect._tcp" TLP301 SER-ONE
+expect_exit 0 "wireless serial with a space" "$F" --phone
+check "wireless serial with a space: printed whole" out_has "^adb-SER-ONE-AbCdEf (2)\._adb-tls-connect\._tcp$"
+check "wireless serial with a space: queried whole" log_has "adb -s adb-SER-ONE-AbCdEf (2)._adb-tls-connect._tcp shell getprop ro.product.model"
+
+new_state
+add_device "adb-SER-ONE-AbCdEf (2)._adb-tls-connect._tcp" TLP301 SER-ONE
+add_device 192.168.1.20:41629 TLP301 SER-ONE
+expect_exit 0 "same phone as a spaced mDNS name and IP:port: picks one" "$F" --phone
+
 new_state
 add_device OTHERPHONE Pixel_8 OTHERPHONE
 add_device emulator-5556 sdk_gphone64_arm64
