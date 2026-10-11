@@ -30,30 +30,33 @@ done
 poll="${LP3_FIND_POLL:-5}"
 [[ $poll =~ ^[0-9]{1,4}$ ]] || { echo "LP3_FIND_POLL must be 0-9999 seconds" >&2; usage >&2; exit 64; }
 
-# Serials adb lists in state "device" (offline and unauthorized entries can't be driven).
-online() { adb devices </dev/null | awk 'NR > 1 && $2 == "device" { print $1 }'; }
+# Serials adb lists in state "device" (offline and unauthorized entries can't be driven). adb separates
+# serial and state with a tab, and a serial can hold spaces: after a quick wireless-debugging restart the
+# mDNS entry becomes "adb-<serial>-<suffix> (2)._adb-tls-connect._tcp".
+online() { adb devices </dev/null | awk -F'\t' 'NR > 1 && $2 == "device" { print $1 }'; }
 
-# One line per match on stdout: "<key> <serial>". Phones are keyed by ro.serialno for de-duplication.
+# One line per match on stdout: "<key><TAB><serial>". Phones are keyed by ro.serialno for de-duplication.
 matches() {
   local s model sn name
-  for s in $(online); do
+  while IFS= read -r s; do
+    [ -n "$s" ] || continue
     if [ "$mode" = phone ]; then
       model=$(adb -s "$s" shell getprop ro.product.model </dev/null 2>/dev/null | tr -d '\r') || continue
       [ "$model" = TLP301 ] || continue
       sn=$(adb -s "$s" shell getprop ro.serialno </dev/null 2>/dev/null | tr -d '\r') || sn=""
-      echo "${sn:-$s} $s"
+      printf '%s\t%s\n' "${sn:-$s}" "$s"
     else
       case "$s" in emulator-*) ;; *) continue ;; esac
       name=$(adb -s "$s" emu avd name </dev/null 2>/dev/null | sed -n 1p | tr -d '\r') || continue
-      if [ "$name" = "$avd" ]; then echo "$s $s"; fi
+      if [ "$name" = "$avd" ]; then printf '%s\t%s\n' "$s" "$s"; fi
     fi
-  done
+  done < <(online)
   return 0
 }
 
 # Collapse matches with the same key, preferring the entry that isn't wireless.
 pick() {
-  sort | awk '
+  sort | awk -F'\t' '
     { wireless = ($2 ~ /_adb-tls-connect\._tcp$/ || $2 ~ /:[0-9]+$/) }
     !($1 in best) || (bestw[$1] && !wireless) { best[$1] = $2; bestw[$1] = wireless }
     END { for (k in best) print best[k] }'
