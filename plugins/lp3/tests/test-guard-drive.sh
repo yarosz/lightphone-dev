@@ -156,21 +156,40 @@ done
 check "drive: POWER never sent" log_lacks "keyevent"
 expect_exit 0 "drive key with leading zeros is sent as the number" "$D" $S $PKG key 0024
 check "drive key 0024: sent as 24" log_has "input keyevent 24"
-# com.lightos passed explicitly: LightOS itself may be driven, with the same awake/unlocked/key rules
+# com.lightos passed explicitly: LightOS itself may be driven, only with LP3_ALLOW_LIGHTOS=1
 OS=com.lightos
 new_state; add_device $S TLP301 $S
 set_screen $S Awake "$(focus_of $OS)"
-expect_exit 0 "guard: com.lightos passed explicitly, LightOS focused" "$G" $S $OS
+expect_exit 3 "guard: com.lightos without LP3_ALLOW_LIGHTOS" "$G" $S $OS
+check "guard: com.lightos refusal says to ask the human" err_has "LP3_ALLOW_LIGHTOS=1: ask the human"
+expect_exit 3 "guard --pre-launch: com.lightos without LP3_ALLOW_LIGHTOS" "$G" --pre-launch $S $OS
+LP3_ALLOW_LIGHTOS=yes expect_exit 3 "guard: LP3_ALLOW_LIGHTOS must be exactly 1" "$G" $S $OS
+expect_exit 3 "drive com.lightos tap without LP3_ALLOW_LIGHTOS" "$D" $S $OS tap 300 400
+check "drive com.lightos tap without LP3_ALLOW_LIGHTOS: no input sent" log_lacks "input"
+set_screen $S Asleep "$(focus_of $OS)" true
+touch "$FAKE_ADB_STATE/dev/$S/wake.wakes" "$FAKE_ADB_STATE/dev/$S/wake.unlocks"
+expect_exit 3 "drive com.lightos wake without LP3_ALLOW_LIGHTOS" "$D" $S $OS wake
+check "drive com.lightos wake without LP3_ALLOW_LIGHTOS: no key sent" log_lacks "keyevent"
+check "drive com.lightos wake without LP3_ALLOW_LIGHTOS: reason" err_has "LP3_ALLOW_LIGHTOS"
+check "guard: com.lightos refused before reading the device" log_lacks "dumpsys"
+
+export LP3_ALLOW_LIGHTOS=1
+new_state; add_device $S TLP301 $S
+set_screen $S Awake "$(focus_of $OS)"
+expect_exit 0 "guard: com.lightos allowed, LightOS focused" "$G" $S $OS
+expect_exit 0 "guard --pre-launch: com.lightos allowed" "$G" --pre-launch $S $OS
 expect_exit 0 "drive com.lightos tap" "$D" $S $OS tap 300 400
 check "drive com.lightos tap: input sent" log_has "adb -s $S shell input tap 300 400"
 expect_exit 0 "drive com.lightos swipe" "$D" $S $OS swipe 100 900 100 300
 expect_exit 0 "drive com.lightos key" "$D" $S $OS key KEYCODE_BACK
-expect_exit 0 "drive com.lightos text" "$D" $S $OS text "abc"
-for k in 26 KEYCODE_POWER 223 KEYCODE_SLEEP 6 KEYCODE_ENDCALL 224 KEYCODE_WAKEUP; do
-  expect_exit 3 "drive com.lightos key $k refused" "$D" $S $OS key $k
+expect_exit 3 "drive com.lightos key POWER refused" "$D" $S $OS key KEYCODE_POWER
+for k in 24 0024 KEYCODE_VOLUME_UP VOLUME_UP 25 KEYCODE_VOLUME_DOWN 164 KEYCODE_0164 VOLUME_MUTE 91 KEYCODE_MUTE MUTE; do
+  expect_exit 3 "drive com.lightos volume key $k refused" "$D" $S $OS key $k
 done
-check "drive com.lightos: refused keys never sent" bash -c '! grep -Eq "keyevent (26|223|6|224|KEYCODE_(POWER|SLEEP|ENDCALL|WAKEUP))$" "$1"' _ "$FAKE_ADB_STATE/log"
+check "drive com.lightos volume refusal reason" err_has "changes the volume"
+check "drive com.lightos: refused keys never sent" bash -c '! grep -Eq "keyevent (26|24|25|91|164|KEYCODE_(POWER|VOLUME_UP|VOLUME_DOWN|VOLUME_MUTE|MUTE))$" "$1"' _ "$FAKE_ADB_STATE/log"
 expect_exit 3 "drive com.lightos stop refused" "$D" $S $OS stop
+check "drive com.lightos stop: reason" err_has "force-stop LightOS"
 check "drive com.lightos stop: LightOS never force-stopped" log_lacks "force-stop"
 set_screen $S Awake "$(focus_of $PKG)"
 expect_exit 3 "guard: com.lightos refused while a Tool has focus" "$G" $S $OS
@@ -178,11 +197,30 @@ set_screen $S Awake "Window{9f u0 NotificationShade}"
 expect_exit 3 "guard: com.lightos refused with NotificationShade" "$G" $S $OS
 set_screen $S Awake "$(focus_of $OS)" true
 expect_exit 3 "guard: com.lightos refused when locked" "$G" $S $OS
+expect_exit 3 "guard --pre-launch: com.lightos refused when locked" "$G" --pre-launch $S $OS
 set_screen $S Dozing "$(focus_of $OS)"
 expect_exit 3 "drive com.lightos tap while Dozing" "$D" $S $OS tap 1 1
 check "drive com.lightos tap while Dozing: no input" log_lacks "input tap 1 1"
 set_screen $S Awake "$(focus_of com.lightos.extra)"
 expect_exit 3 "guard: com.lightos doesn't match a com.lightos.* package" "$G" $S $OS
+
+new_state; add_device $S TLP301 $S
+set_screen $S Asleep "$(focus_of $OS)" true
+touch "$FAKE_ADB_STATE/dev/$S/wake.wakes" "$FAKE_ADB_STATE/dev/$S/wake.unlocks"
+LP3_WAKE_WAIT=1 expect_exit 0 "drive com.lightos wake, allowed" "$D" $S $OS wake
+check "drive com.lightos wake: WAKEUP sent" log_has "input keyevent KEYCODE_WAKEUP$"
+unset LP3_ALLOW_LIGHTOS
+
+# volume keys stay allowed for a Tool's package, even with LP3_ALLOW_LIGHTOS=1 set
+new_state; add_device $S TLP301 $S
+set_screen $S Awake "$(focus_of $PKG)"
+expect_exit 0 "drive Tool volume key still allowed" "$D" $S $PKG key KEYCODE_VOLUME_UP
+LP3_ALLOW_LIGHTOS=1 expect_exit 0 "drive Tool key 25 allowed with LP3_ALLOW_LIGHTOS set" "$D" $S $PKG key 25
+check "drive Tool volume keys sent" log_has "input keyevent 25$"
+set_screen $S Awake "$(focus_of com.lightos)"
+expect_exit 3 "guard: LightOS focus for a Tool" "$G" $S $PKG
+check "guard: LightOS focus says to launch the Tool" err_has "LightOS has focus: run .*launch"
+check "guard: LightOS focus warns off com.lightos" err_has "do not pass com.lightos unless the human allowed"
 set_screen $S Awake "$(focus_of $PKG)"
 
 expect_exit 64 "drive tap: bad coordinates" "$D" $S $PKG tap 1 x

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Drive one Tool on an LP3 or LightOS emulator, running lp3-guard.sh before every input.
+# Drive one package (a Tool, or LightOS itself) on an LP3 or LightOS emulator, running lp3-guard.sh
+# before every input.
 #
 #   lp3-drive.sh <serial> <pkg> launch <activity>        # .MainActivity, MainActivity or <pkg>/.MainActivity
 #   lp3-drive.sh <serial> <pkg> tap <x> <y>
@@ -18,14 +19,17 @@
 # key refuses POWER (26), ENDCALL (6), TV_POWER (177), SLEEP (223), WAKEUP (224) and SOFT_SLEEP (276)
 # in every spelling (number, with or without leading zeros, KEYCODE_ name or bare name): these can sleep
 # the LP3 (ENDCALL does when no call is up) and drop adb. Wake the phone with `wake` instead.
-# <pkg> may be com.lightos to drive LightOS itself (only when the human has allowed it): the input verbs
-# then need LightOS focused. stop refuses com.lightos, since force-stopping it kills the home screen.
+# <pkg> may be com.lightos to drive LightOS itself, only after the human has allowed it: every guarded
+# verb, and wake, then needs LP3_ALLOW_LIGHTOS=1 (lp3-guard.sh refuses without it), and the input verbs
+# need LightOS focused. For com.lightos, key also refuses VOLUME_UP (24), VOLUME_DOWN (25),
+# VOLUME_MUTE (164) and MUTE (91), in the same spellings, so OS-level driving can't change the ringer or
+# media volume. stop refuses com.lightos, since force-stopping it kills the home screen.
 #
 # Exit 3 = a guard failed, a key was refused, or wake couldn't unlock (reason on stderr); stop and ask
 # the human. Exit 64 = usage.
 set -euo pipefail
 
-usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 [ $# -ge 3 ] || { usage >&2; exit 64; }
 
@@ -82,6 +86,12 @@ case "$verb" in
       6|26|177|223|224|276|ENDCALL|POWER|TV_POWER|SLEEP|WAKEUP|SOFT_SLEEP)
         echo "refused: $1 sleeps or wakes the phone. To wake or unlock it, run: $0 $serial $pkg wake" >&2; exit 3 ;;
     esac
+    if [ "$pkg" = com.lightos ]; then
+      case "${keycode#KEYCODE_}" in
+        24|25|91|164|VOLUME_UP|VOLUME_DOWN|VOLUME_MUTE|MUTE)
+          echo "refused: $1 changes the volume, and com.lightos is LightOS itself; volume keys are for a Tool's <pkg> only" >&2; exit 3 ;;
+      esac
+    fi
     [[ $keycode =~ $num || $keycode =~ ^KEYCODE_[A-Z0-9_]+$ ]] || { usage >&2; exit 64; }
     guard; adb -s "$serial" shell input keyevent "$keycode" </dev/null
     ;;
@@ -103,6 +113,8 @@ case "$verb" in
     [ $# -eq 0 ] || { usage >&2; exit 64; }
     wait_s="${LP3_WAKE_WAIT:-5}"
     [[ $wait_s =~ ^[0-9]{1,4}$ ]] || { echo "LP3_WAKE_WAIT must be 0-9999 seconds" >&2; usage >&2; exit 64; }
+    # com.lightos without LP3_ALLOW_LIGHTOS=1: let the guard print why, before any key is sent.
+    if [ "$pkg" = com.lightos ] && [ "${LP3_ALLOW_LIGHTOS:-}" != 1 ]; then guard --pre-launch; fi
     guard --pre-launch 2>/dev/null && exit 0   # already awake and unlocked: send no keys
     ask="Ask the human to wake or unlock the phone."
     adb -s "$serial" shell input keyevent KEYCODE_WAKEUP </dev/null >/dev/null \
