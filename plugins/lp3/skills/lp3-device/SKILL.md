@@ -55,11 +55,18 @@ An agent once blamed the cable while another session had moved the phone to wire
 **Guard every input** (step 4). The guard reads `dumpsys power` (Awake), the keyguard state from both
 `dumpsys window policy` and `dumpsys activity activities` (it needs `isKeyguardShowing=false` as proof,
 so unfamiliar output is unsafe), and the global `dumpsys window displays` mCurrentFocus (a window whose
-component is your package, not NotificationShade, a keyguard, or `com.lightos`). It reads only these live sections:
+component is the `<pkg>` you passed, never NotificationShade or a keyguard; LightOS focus fails it for any
+Tool's package). It reads only these live sections:
 the full `dumpsys window` starts with a saved LAST ANR section whose focus may be stale. Call `scripts/lp3-guard.sh` yourself before any input
 you send another way. Volume keys once landed on the LightOS home screen and may have zeroed the ringer;
 a dozing phone failed CI three times; the guard pattern ran 184 focus checks with 0 misfires in one
 project.
+
+**Drive LightOS itself only when the human allows it.** For OS-level work (LightOS Settings, say), pass
+`com.lightos` as `<pkg>`: `scripts/lp3-drive.sh <serial> com.lightos tap|swipe|key|text ...`. The guard
+then needs LightOS focused, awake and unlocked; POWER, SLEEP, ENDCALL and WAKEUP stay refused, and `stop`
+refuses `com.lightos`. Never pass it while testing a Tool. LightOS's own text fields use an in-app
+keyboard that ignores `input text`: tap its keys instead.
 
 **Wake with `wake` if the owner allows it, then ask.** Waking and unlocking a phone is its owner's call:
 a person may be using it. If they have allowed it and the guard says asleep or locked, run
@@ -110,7 +117,7 @@ awake. Let it sleep on its own timeout; never press POWER to force it.
 | Script | Does |
 |---|---|
 | `lp3-find.sh [--phone \| --avd <name>] [--wait <s>]` | Prints exactly one serial, or exits 1 (none) or 2 (several). |
-| `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused; exit 3 with the reason. `--pre-launch` still refuses a locked phone. |
+| `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused (`com.lightos` counts only when passed as `<pkg>`); exit 3 with the reason. `--pre-launch` still refuses a locked phone. |
 | `lp3-drive.sh <serial> <pkg> <verb> ...` | Guarded `launch`, `tap`, `swipe`, `key`, `text`; unguarded `shot`, `stop`; `wake` wakes and unlocks (no PIN), exit 3 if it can't. |
 | `lp3-settings.sh <serial> save <file> <ns>:<key>... \| restore <file>` | Saves originals to a file; restores, deleting nulls. |
 | `lp3-lease.sh take\|renew\|release\|show` | Turn-taking between sessions ([references/sharing.md](references/sharing.md)). |

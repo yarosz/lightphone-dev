@@ -16,7 +16,9 @@
 #      check as well: LightOS focus is fine before a launch, a locked phone isn't.
 #   3. The global mCurrentFocus (the last one in `dumpsys window displays`, after any per-display ones)
 #      is a window whose component is <pkg>: `u<n> <pkg>/<class>}`. A window title that merely contains
-#      <pkg> doesn't count. Skipped with --pre-launch.
+#      <pkg> doesn't count. Skipped with --pre-launch. So LightOS focus fails the check for any Tool's
+#      <pkg>, and passes only when <pkg> is com.lightos itself: pass that only when the human has allowed
+#      driving LightOS (its Settings, for example).
 #
 # Only live sections are read. The full `dumpsys window` starts with a saved LAST ANR section (checked
 # on a real LP3, 2026-10-09), so after an ANR its stale mCurrentFocus would come first.
@@ -31,7 +33,7 @@
 # human to bring the Tool forward. Exit 64 = usage.
 set -euo pipefail
 
-usage() { sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; }
 
 prelaunch=0
 case "${1:-}" in

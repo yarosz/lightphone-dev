@@ -18,12 +18,14 @@
 # key refuses POWER (26), ENDCALL (6), TV_POWER (177), SLEEP (223), WAKEUP (224) and SOFT_SLEEP (276)
 # in every spelling (number, with or without leading zeros, KEYCODE_ name or bare name): these can sleep
 # the LP3 (ENDCALL does when no call is up) and drop adb. Wake the phone with `wake` instead.
+# <pkg> may be com.lightos to drive LightOS itself (only when the human has allowed it): the input verbs
+# then need LightOS focused. stop refuses com.lightos, since force-stopping it kills the home screen.
 #
 # Exit 3 = a guard failed, a key was refused, or wake couldn't unlock (reason on stderr); stop and ask
 # the human. Exit 64 = usage.
 set -euo pipefail
 
-usage() { sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 [ $# -ge 3 ] || { usage >&2; exit 64; }
 
@@ -94,6 +96,7 @@ case "$verb" in
     ;;
   stop)
     [ $# -eq 0 ] || { usage >&2; exit 64; }
+    [ "$pkg" != com.lightos ] || { echo "refused: stop would force-stop LightOS itself" >&2; exit 3; }
     adb -s "$serial" shell am force-stop "$pkg" </dev/null
     ;;
   wake)

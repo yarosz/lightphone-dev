@@ -156,6 +156,35 @@ done
 check "drive: POWER never sent" log_lacks "keyevent"
 expect_exit 0 "drive key with leading zeros is sent as the number" "$D" $S $PKG key 0024
 check "drive key 0024: sent as 24" log_has "input keyevent 24"
+# com.lightos passed explicitly: LightOS itself may be driven, with the same awake/unlocked/key rules
+OS=com.lightos
+new_state; add_device $S TLP301 $S
+set_screen $S Awake "$(focus_of $OS)"
+expect_exit 0 "guard: com.lightos passed explicitly, LightOS focused" "$G" $S $OS
+expect_exit 0 "drive com.lightos tap" "$D" $S $OS tap 300 400
+check "drive com.lightos tap: input sent" log_has "adb -s $S shell input tap 300 400"
+expect_exit 0 "drive com.lightos swipe" "$D" $S $OS swipe 100 900 100 300
+expect_exit 0 "drive com.lightos key" "$D" $S $OS key KEYCODE_BACK
+expect_exit 0 "drive com.lightos text" "$D" $S $OS text "abc"
+for k in 26 KEYCODE_POWER 223 KEYCODE_SLEEP 6 KEYCODE_ENDCALL 224 KEYCODE_WAKEUP; do
+  expect_exit 3 "drive com.lightos key $k refused" "$D" $S $OS key $k
+done
+check "drive com.lightos: refused keys never sent" bash -c '! grep -Eq "keyevent (26|223|6|224|KEYCODE_(POWER|SLEEP|ENDCALL|WAKEUP))$" "$1"' _ "$FAKE_ADB_STATE/log"
+expect_exit 3 "drive com.lightos stop refused" "$D" $S $OS stop
+check "drive com.lightos stop: LightOS never force-stopped" log_lacks "force-stop"
+set_screen $S Awake "$(focus_of $PKG)"
+expect_exit 3 "guard: com.lightos refused while a Tool has focus" "$G" $S $OS
+set_screen $S Awake "Window{9f u0 NotificationShade}"
+expect_exit 3 "guard: com.lightos refused with NotificationShade" "$G" $S $OS
+set_screen $S Awake "$(focus_of $OS)" true
+expect_exit 3 "guard: com.lightos refused when locked" "$G" $S $OS
+set_screen $S Dozing "$(focus_of $OS)"
+expect_exit 3 "drive com.lightos tap while Dozing" "$D" $S $OS tap 1 1
+check "drive com.lightos tap while Dozing: no input" log_lacks "input tap 1 1"
+set_screen $S Awake "$(focus_of com.lightos.extra)"
+expect_exit 3 "guard: com.lightos doesn't match a com.lightos.* package" "$G" $S $OS
+set_screen $S Awake "$(focus_of $PKG)"
+
 expect_exit 64 "drive tap: bad coordinates" "$D" $S $PKG tap 1 x
 expect_exit 64 "drive: unknown verb" "$D" $S $PKG poke
 
