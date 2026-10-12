@@ -1,6 +1,6 @@
 {
   "name": "lp3",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Skills for building Light Phone III Tools: drive the phone or LightOS emulator safely, start a Tool, measure on the LP3, release, and check a repo before it goes public.",
   "author": {
     "name": "yarosz",

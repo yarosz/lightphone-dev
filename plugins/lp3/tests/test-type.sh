@@ -11,6 +11,8 @@ set_screen $S Awake "$(focus_of $OS)"
 
 export LP3_ALLOW_LIGHTOS=1
 expect_exit 0 "type: -h" "$T" -h
+check "type: -h omits set -euo" test -z "$(grep 'set -euo' "$WORK/out")"
+check "type: -h ends with the exit codes" grep -q 'Exit 64' "$WORK/out"
 check "type: -h prints usage" out_has "lightos-type.sh <serial>"
 expect_exit 64 "type: no arguments" "$T"
 expect_exit 64 "type: empty text" "$T" $S ""
@@ -43,6 +45,27 @@ check "type: bad character named" err_has "'7'"
 check "type: no LP3_ALLOW_LIGHTOS: no input sent" log_lacks "input"
 LP3_ALLOW_LIGHTOS=yes expect_exit 3 "type: LP3_ALLOW_LIGHTOS must be exactly 1" "$T" $S ab
 check "type: refusal says to ask the human" err_has "ask the human"
+
+# screen geometry: the table was measured at 1080x1240
+printf 'Physical size: 1080x1240\nOverride size: 1080x2000\n' > "$FAKE_ADB_STATE/dev/$S/wm.size"
+: > "$FAKE_ADB_STATE/log"
+expect_exit 3 "type: size mismatch exits 3" "$T" $S ab
+check "type: size mismatch: zero taps" log_lacks "input tap"
+check "type: size mismatch says to re-measure" err_has "measured at 1080x1240"
+printf 'Physical size: 1080x2000\nOverride size: 1080x1240\n' > "$FAKE_ADB_STATE/dev/$S/wm.size"
+: > "$FAKE_ADB_STATE/log"
+expect_exit 0 "type: override size is the effective size" "$T" $S ab
+check "type: override size matches: taps sent" taps_are "125 800,644 935"
+check "type: wm size read once" [ "$(grep -c 'wm size' "$FAKE_ADB_STATE/log")" = 1 ]
+rm -f "$FAKE_ADB_STATE/dev/$S/wm.size"
+: > "$FAKE_ADB_STATE/log"
+expect_exit 0 "type: default size matches" "$T" $S ab
+check "type: density read" grep -q "wm density" "$FAKE_ADB_STATE/log"
+printf 'Physical density: 480\nOverride density: 320\n' > "$FAKE_ADB_STATE/dev/$S/wm.density"
+: > "$FAKE_ADB_STATE/log"
+expect_exit 3 "type: density override mismatch exits 3" "$T" $S ab
+check "type: density mismatch: zero taps" log_lacks "input tap"
+rm -f "$FAKE_ADB_STATE/dev/$S/wm.density"
 
 # a guard failure before the first tap sends nothing
 set_screen $S Awake "$(focus_of com.example.tool)"

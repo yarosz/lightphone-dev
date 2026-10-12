@@ -77,6 +77,10 @@ unlocked. `key` refuses the sleep/wake keys it refuses for a Tool, and also the 
   For letters and spaces use `scripts/lightos-type.sh <serial> "<text>"` (needs `LP3_ALLOW_LIGHTOS=1`):
   one guarded tap per key, coordinates measured on the Messages compose keyboard (2026-10-11). Digits
   and punctuation are on the "123" layer and refused (exit 64); two spaces in a row type ". ".
+  The guard only proves `com.lightos` has focus; the keyboard is drawn in-app (not an IME, invisible to
+  uiautomator). Take a `shot` first and confirm the letter layer is showing: the script cannot detect a
+  missing keyboard or a navigation mid-run. It exits 3 unless the screen is 1080x1240 at density 480, the
+  geometry the keys were measured at.
 - A setting changed through the LightOS UI bypasses `lp3-settings.sh` save and restore. Write down each
   one you change, with its old value, and set it back by hand before you finish.
 - Never pass `com.lightos` while testing a Tool, or to recover a Tool that lost focus: `launch` the Tool

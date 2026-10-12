@@ -12,6 +12,7 @@
 #   dev/<serial>/window.displays dumpsys window displays
 #   dev/<serial>/window.lastanr  optional; the full `dumpsys window` prints lastanr, policy, displays
 #   dev/<serial>/window.displays.launched  replaces window.displays when `am start` runs
+#   dev/<serial>/wm.size, wm.density  `wm size` / `wm density` output; default Physical size 1080x1240, density 480
 #   dev/<serial>/settings/<ns>.<key>   a setting's value; no file = null
 #   dev/<serial>/wake.wakes      if present, `input keyevent KEYCODE_WAKEUP` sets mWakefulness=Awake
 #   dev/<serial>/wake.unlocks    if present, `wm dismiss-keyguard` clears the keyguard fields
@@ -98,6 +99,8 @@ case "$1 ${2:-}" in
       sed -i.bak 's/mWakefulness=[A-Za-z]*/mWakefulness=Awake/' "$dev/power"
     fi ;;
   "input "*) ;;
+  "wm size") cat "$dev/wm.size" 2>/dev/null || echo "Physical size: 1080x1240" ;;
+  "wm density") cat "$dev/wm.density" 2>/dev/null || echo "Physical density: 480" ;;
   "wm dismiss-keyguard")
     if [ -f "$dev/wake.unlocks" ]; then
       sed -i.bak 's/isKeyguardShowing=true/isKeyguardShowing=false/' "$dev/window.displays"
