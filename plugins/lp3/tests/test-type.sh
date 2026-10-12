@@ -60,11 +60,10 @@ check "type: wm size read once" [ "$(grep -c 'wm size' "$FAKE_ADB_STATE/log")" =
 rm -f "$FAKE_ADB_STATE/dev/$S/wm.size"
 : > "$FAKE_ADB_STATE/log"
 expect_exit 0 "type: default size matches" "$T" $S ab
-check "type: density not read when unset" log_lacks "wm density"
-LIGHTOS_TYPE_DENSITY=420 expect_exit 0 "type: density match" "$T" $S ab
-printf 'Physical density: 420\nOverride density: 320\n' > "$FAKE_ADB_STATE/dev/$S/wm.density"
+check "type: density read" grep -q "wm density" "$FAKE_ADB_STATE/log"
+printf 'Physical density: 480\nOverride density: 320\n' > "$FAKE_ADB_STATE/dev/$S/wm.density"
 : > "$FAKE_ADB_STATE/log"
-LIGHTOS_TYPE_DENSITY=420 expect_exit 3 "type: density override mismatch exits 3" "$T" $S ab
+expect_exit 3 "type: density override mismatch exits 3" "$T" $S ab
 check "type: density mismatch: zero taps" log_lacks "input tap"
 rm -f "$FAKE_ADB_STATE/dev/$S/wm.density"
 

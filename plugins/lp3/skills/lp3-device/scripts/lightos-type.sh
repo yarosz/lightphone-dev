@@ -18,9 +18,9 @@
 # screenshot first and confirm the compose keyboard (letter layer) is showing; taps on any other screen
 # do whatever that screen's buttons do.
 #
-# Before the first tap it reads `wm size` (and `wm density` if LIGHTOS_TYPE_DENSITY is set), using the
-# override value when an "Override size/density" line is present. A size other than 1080x1240 exits 3:
-# the key table was measured at that size, so re-measure.
+# Before the first tap it reads `wm size` and `wm density`, using the override value when an "Override
+# size/density" line is present. Anything other than 1080x1240 at density 480 exits 3: the key table was
+# measured there, so re-measure.
 #
 # Exit 3 = a guard or the screen-geometry check failed (reason on stderr). A failed tap stops the run, and its exit code is passed on.
 # Exit 64 = usage or an unsupported character.
@@ -37,10 +37,9 @@ pkg=com.lightos
 
 # Key centres in pixels. Measured 2026-10-11 on a real LP3 (1080 px wide), LightOS Messages compose
 # screen, letter layer. Other screens or firmware may place the keys elsewhere: re-measure from a shot.
-# Screen geometry at measurement time. Size is enforced; density was not recorded then, so it is only
-# checked when LIGHTOS_TYPE_DENSITY (e.g. 420) is set in the environment.
+# Screen geometry the table was measured at (`wm size`, `wm density` on the same LP3, no overrides).
 table_size=1080x1240
-LIGHTOS_TYPE_DENSITY="${LIGHTOS_TYPE_DENSITY:-}"
+table_density=480
 rows=(QWERTYUIOP ASDFGHJKL ZXCVBNM)
 ys=(662 800 935)
 xs=("72 177 280 385 488 592 695 800 903 1008" "125 228 332 437 540 644 747 852 957" "228 332 437 540 644 747 852")
@@ -68,12 +67,10 @@ if [ "$size" != "$table_size" ]; then
   echo "screen size is '${size:-unknown}', but the key table was measured at $table_size: re-measure the keys from a screenshot" >&2
   exit 3
 fi
-if [ -n "$LIGHTOS_TYPE_DENSITY" ]; then
-  density=$(wm_value density)
-  if [ "$density" != "$LIGHTOS_TYPE_DENSITY" ]; then
-    echo "screen density is '${density:-unknown}', but LIGHTOS_TYPE_DENSITY=$LIGHTOS_TYPE_DENSITY (table measured at size $table_size): re-measure the keys" >&2
-    exit 3
-  fi
+density=$(wm_value density)
+if [ "$density" != "$table_density" ]; then
+  echo "screen density is '${density:-unknown}', but the key table was measured at $table_density: re-measure the keys from a screenshot" >&2
+  exit 3
 fi
 
 for ((i = 0; i < ${#msg}; i++)); do

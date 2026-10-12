@@ -79,8 +79,8 @@ unlocked. `key` refuses the sleep/wake keys it refuses for a Tool, and also the 
   and punctuation are on the "123" layer and refused (exit 64); two spaces in a row type ". ".
   The guard only proves `com.lightos` has focus; the keyboard is drawn in-app (not an IME, invisible to
   uiautomator). Take a `shot` first and confirm the letter layer is showing: the script cannot detect a
-  missing keyboard or a navigation mid-run. It exits 3 unless `wm size` is 1080x1240 (the measured size;
-  density wasn't recorded, so it is checked only if `LIGHTOS_TYPE_DENSITY` is set).
+  missing keyboard or a navigation mid-run. It exits 3 unless the screen is 1080x1240 at density 480, the
+  geometry the keys were measured at.
 - A setting changed through the LightOS UI bypasses `lp3-settings.sh` save and restore. Write down each
   one you change, with its old value, and set it back by hand before you finish.
 - Never pass `com.lightos` while testing a Tool, or to recover a Tool that lost focus: `launch` the Tool
