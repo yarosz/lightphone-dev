@@ -74,6 +74,9 @@ unlocked. `key` refuses the sleep/wake keys it refuses for a Tool, and also the 
   (PLATFORM.md, "Getting adb on the phone").
 - LightOS's text fields ignore `input text` and keyevents: tap its on-screen keys, located from a
   screenshot. Seen on a real LP3 (2026-10-11) in the eSIM activation-code field.
+  For letters and spaces use `scripts/lightos-type.sh <serial> "<text>"` (needs `LP3_ALLOW_LIGHTOS=1`):
+  one guarded tap per key, coordinates measured on the Messages compose keyboard (2026-10-11). Digits
+  and punctuation are on the "123" layer and refused (exit 64); two spaces in a row type ". ".
 - A setting changed through the LightOS UI bypasses `lp3-settings.sh` save and restore. Write down each
   one you change, with its old value, and set it back by hand before you finish.
 - Never pass `com.lightos` while testing a Tool, or to recover a Tool that lost focus: `launch` the Tool
@@ -132,6 +135,7 @@ awake. Let it sleep on its own timeout; never press POWER to force it.
 | `lp3-find.sh [--phone \| --avd <name>] [--wait <s>]` | Prints exactly one serial, or exits 1 (none) or 2 (several). |
 | `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused (`com.lightos` counts only when passed as `<pkg>`, with `LP3_ALLOW_LIGHTOS=1`); exit 3 with the reason. `--pre-launch` still refuses a locked phone. |
 | `lp3-drive.sh <serial> <pkg> <verb> ...` | Guarded `launch`, `tap`, `swipe`, `key`, `text`; unguarded `shot`, `stop`; `wake` wakes and unlocks (no PIN), exit 3 if it can't. |
+| `lightos-type.sh <serial> "<text>"` | Types letters and spaces on LightOS's in-app keyboard (it ignores `input text`) by guarded taps; needs `LP3_ALLOW_LIGHTOS=1`; digits and punctuation exit 64. |
 | `lp3-settings.sh <serial> save <file> <ns>:<key>... \| restore <file>` | Saves originals to a file; restores, deleting nulls. |
 | `lp3-lease.sh take\|renew\|release\|show` | Turn-taking between sessions ([references/sharing.md](references/sharing.md)). |
 
