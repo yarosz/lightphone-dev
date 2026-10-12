@@ -55,19 +55,38 @@ An agent once blamed the cable while another session had moved the phone to wire
 **Guard every input** (step 4). The guard reads `dumpsys power` (Awake), the keyguard state from both
 `dumpsys window policy` and `dumpsys activity activities` (it needs `isKeyguardShowing=false` as proof,
 so unfamiliar output is unsafe), and the global `dumpsys window displays` mCurrentFocus (a window whose
-component is your package, not NotificationShade, a keyguard, or `com.lightos`). It reads only these live sections:
+component is the `<pkg>` you passed, never NotificationShade or a keyguard; LightOS focus fails it for any
+Tool's package). It reads only these live sections:
 the full `dumpsys window` starts with a saved LAST ANR section whose focus may be stale. Call `scripts/lp3-guard.sh` yourself before any input
 you send another way. Volume keys once landed on the LightOS home screen and may have zeroed the ringer;
 a dozing phone failed CI three times; the guard pattern ran 184 focus checks with 0 misfires in one
 project.
+
+**Drive LightOS itself only when the human allows it.** For OS-level work (LightOS Settings, say), ask
+first. Only after the human says yes, set `LP3_ALLOW_LIGHTOS=1` and pass `com.lightos` as `<pkg>`:
+`LP3_ALLOW_LIGHTOS=1 scripts/lp3-drive.sh <serial> com.lightos shot|tap|swipe|key ...`. Without the
+variable the guard exits 3 and sends nothing. With it, the guard still needs LightOS focused, awake and
+unlocked. `key` refuses the sleep/wake keys it refuses for a Tool, and also the volume and mute keys
+(VOLUME_UP, VOLUME_DOWN, VOLUME_MUTE, MUTE), in any spelling. `stop` refuses `com.lightos`.
+- Take a `shot` and read the screen before every tap. LightOS has no Tool layout to rely on.
+- LightOS Settings > Debug is off-limits: "service menu" restarts the phone, the "Android Dev Mode"
+  toggle is USB debugging (turning it off drops adb), and leave OEM unlocking and "change launcher" alone
+  (PLATFORM.md, "Getting adb on the phone").
+- LightOS's text fields ignore `input text` and keyevents: tap its on-screen keys, located from a
+  screenshot. Seen on a real LP3 (2026-10-11) in the eSIM activation-code field.
+- A setting changed through the LightOS UI bypasses `lp3-settings.sh` save and restore. Write down each
+  one you change, with its old value, and set it back by hand before you finish.
+- Never pass `com.lightos` while testing a Tool, or to recover a Tool that lost focus: `launch` the Tool
+  again instead.
 
 **Wake with `wake` if the owner allows it, then ask.** Waking and unlocking a phone is its owner's call:
 a person may be using it. If they have allowed it and the guard says asleep or locked, run
 `scripts/lp3-drive.sh <serial> <pkg> wake`: it sends WAKEUP and `wm dismiss-keyguard` only when needed,
 then waits for the guard. If it exits 3 (a PIN or pattern keeps the phone locked, another window has
 focus, or adb is gone), ask the human and don't run it again. Some harnesses (Claude Code's auto mode,
-for one) may block waking over adb; then ask the human rather than work around it. Never press POWER, SLEEP or ENDCALL: they sleep
-the LP3 and drop adb. `lp3-drive.sh key` refuses them, and WAKEUP, in any spelling.
+for one) may block waking over adb; then ask the human rather than work around it. Never press POWER,
+SLEEP, SOFT_SLEEP, TV_POWER or ENDCALL: they can sleep the LP3 and drop adb. `lp3-drive.sh key` refuses
+them, and WAKEUP, in any spelling.
 
 **Read the lease, then ask.** A quiet logcat or an old install time doesn't mean the phone is free: a
 person may be reading on it.
@@ -79,7 +98,8 @@ A killed run once lost the original stay-on value because it lived in a shell va
 restored null as 0.
 
 **Leave it as found** (step 5). At the end of every session:
-- `scripts/lp3-drive.sh <serial> <pkg> stop`: force-stop your package only.
+- `scripts/lp3-drive.sh <serial> <pkg> stop`: force-stop your package only. Skip this when `<pkg>` is
+  `com.lightos` (it refuses); restore by hand any LightOS setting you changed instead.
 - Uninstall only probes you installed.
 - `scripts/lp3-settings.sh <serial> restore "$HOME/.cache/lp3-settings-<pkg>-<holder>"`.
 - `adb -s <serial> shell pm list packages` still lists your Tool and the stock Tools (one session's
@@ -110,7 +130,7 @@ awake. Let it sleep on its own timeout; never press POWER to force it.
 | Script | Does |
 |---|---|
 | `lp3-find.sh [--phone \| --avd <name>] [--wait <s>]` | Prints exactly one serial, or exits 1 (none) or 2 (several). |
-| `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused; exit 3 with the reason. `--pre-launch` still refuses a locked phone. |
+| `lp3-guard.sh [--pre-launch] <serial> <pkg>` | Exit 0 if awake, unlocked and `<pkg>` focused (`com.lightos` counts only when passed as `<pkg>`, with `LP3_ALLOW_LIGHTOS=1`); exit 3 with the reason. `--pre-launch` still refuses a locked phone. |
 | `lp3-drive.sh <serial> <pkg> <verb> ...` | Guarded `launch`, `tap`, `swipe`, `key`, `text`; unguarded `shot`, `stop`; `wake` wakes and unlocks (no PIN), exit 3 if it can't. |
 | `lp3-settings.sh <serial> save <file> <ns>:<key>... \| restore <file>` | Saves originals to a file; restores, deleting nulls. |
 | `lp3-lease.sh take\|renew\|release\|show` | Turn-taking between sessions ([references/sharing.md](references/sharing.md)). |

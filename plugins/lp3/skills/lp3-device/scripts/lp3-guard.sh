@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Check that it is safe to send input to a Tool: the device is awake, not locked, and the Tool has focus.
+# Check that it is safe to send input to <pkg> (a Tool, or LightOS itself): the device is awake, not
+# locked, and <pkg> has focus.
 #
 #   lp3-guard.sh <serial> <pkg>                # before a tap, swipe, key or text
 #   lp3-guard.sh --pre-launch <serial> <pkg>   # before launching <pkg>: LightOS may have focus
@@ -16,7 +17,12 @@
 #      check as well: LightOS focus is fine before a launch, a locked phone isn't.
 #   3. The global mCurrentFocus (the last one in `dumpsys window displays`, after any per-display ones)
 #      is a window whose component is <pkg>: `u<n> <pkg>/<class>}`. A window title that merely contains
-#      <pkg> doesn't count. Skipped with --pre-launch.
+#      <pkg> doesn't count. Skipped with --pre-launch. So LightOS focus fails the check for any Tool's
+#      <pkg>, and passes only when <pkg> is com.lightos itself.
+#
+# <pkg> com.lightos (driving LightOS itself, its Settings for example) also needs LP3_ALLOW_LIGHTOS=1 in
+# the environment, with or without --pre-launch. Set it only after the human has allowed OS-level
+# driving; without it the guard exits 3 before reading the device.
 #
 # Only live sections are read. The full `dumpsys window` starts with a saved LAST ANR section (checked
 # on a real LP3, 2026-10-09), so after an ANR its stale mCurrentFocus would come first.
@@ -27,11 +33,12 @@
 # Android 14 prints, not yet confirmed on a locked LP3.
 #
 # Exit 0 = safe. Exit 3 = not safe, with the reason on stderr. Asleep or locked: run
-# `lp3-drive.sh <serial> <pkg> wake`, and ask the human only if that fails. Otherwise stop and ask the
-# human to bring the Tool forward. Exit 64 = usage.
+# `lp3-drive.sh <serial> <pkg> wake`, and ask the human only if that fails. LightOS focused instead of a
+# Tool: `lp3-drive.sh <serial> <pkg> launch <activity>`. Otherwise stop and ask the human to bring <pkg>
+# forward. Exit 64 = usage.
 set -euo pipefail
 
-usage() { sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//'; }
 
 prelaunch=0
 case "${1:-}" in
@@ -43,6 +50,9 @@ serial="$1" pkg="$2"
 [[ $pkg =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$ ]] || { echo "bad package name: $pkg" >&2; usage >&2; exit 64; }
 
 unsafe() { echo "unsafe ($serial): $*" >&2; exit 3; }
+if [ "$pkg" = com.lightos ] && [ "${LP3_ALLOW_LIGHTOS:-}" != 1 ]; then
+  unsafe "com.lightos drives LightOS itself and needs LP3_ALLOW_LIGHTOS=1: ask the human whether OS-level driving is allowed, and set it only if they say yes"
+fi
 dumpsys() { adb -s "$serial" shell dumpsys "$@" </dev/null 2>/dev/null | tr -d '\r'; }
 
 power=$(dumpsys power) \
@@ -75,6 +85,10 @@ esac
 if [ "$prelaunch" -eq 0 ]; then
   # The whole record must be Window{<hash> u<n> <pkg>/<class>}, so a window title can't mimic it.
   component="^[[:space:]]*Window\{[0-9a-f]+[[:space:]]+u[0-9]+[[:space:]]+${pkg//./\\.}/[^[:space:]}]+\}[[:space:]]*$"
-  [[ $focus =~ $component ]] || unsafe "focus is not $pkg: $focus"
+  if ! [[ $focus =~ $component ]]; then
+    lightos="^[[:space:]]*Window\{[0-9a-f]+[[:space:]]+u[0-9]+[[:space:]]+com\.lightos/[^[:space:]}]+\}[[:space:]]*$"
+    [[ $focus =~ $lightos ]] && unsafe "LightOS has focus: run \`lp3-drive.sh $serial $pkg launch <activity>\` to bring $pkg forward; do not pass com.lightos unless the human allowed OS-level driving ($focus)"
+    unsafe "focus is not $pkg: $focus"
+  fi
 fi
 exit 0
