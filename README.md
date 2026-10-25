@@ -1,8 +1,9 @@
 # Building Light Phone III Tools with AI agents
 
-Notes from building three LightOS Tools for the Light Phone III in September 2026, with Claude Code
-agents writing nearly all of the code and most of the design rulings. One maintainer set direction,
-held the phone, pressed Touch ID and made the calls that can't be undone.
+Notes from building three LightOS Tools for the Light Phone III in September and October 2026, with
+Claude Code agents running [pstack](https://github.com/cursor/plugins) (Lauren Tan's skill stack) writing
+nearly all of the code and most of the design rulings. One maintainer set direction, held the phone,
+pressed Touch ID and made the calls that can't be undone.
 
 | Tool | What it is | State |
 |---|---|---|
@@ -10,8 +11,11 @@ held the phone, pressed Touch ID and made the calls that can't be undone.
 | [light-doom](https://github.com/yarosz/light-doom) | Doom at 35 fps in pure Kotlin through a WebAssembly interpreter | Released as a dev-signed proof of concept |
 | [light-chess](https://github.com/yarosz/light-chess) | Puzzles, an offline engine, and phone-to-phone games | 0.5.0 submitted to Light's Tool Library (2026-10-09), awaiting approval |
 
-A side project, [lightphone-wifi-install](https://github.com/yarosz/lightphone-wifi-install), installs
-Tools over Wi-Fi without a cable.
+Beyond Tools, the same method built [lp3-treble](https://github.com/yarosz/lp3-treble), a config pack
+for running a generic Android Treble GSI (LineageOS) on the LP3 with calls, SMS, data, fingerprint and
+the LP3's keys working (early preview), and
+[lightphone-wifi-install](https://github.com/yarosz/lightphone-wifi-install), which installs Tools over
+Wi-Fi without a cable.
 
 ## What's here
 
